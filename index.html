@@ -1,0 +1,1382 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SpatialOS for Active Furniture Ecosystems</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #151815;
+      --muted: #5c635c;
+      --line: #d8d7cf;
+      --paper: #f4f1e9;
+      --panel: #fbfaf6;
+      --graphite: #242822;
+      --graphite-2: #343a33;
+      --green: #1e6b4a;
+      --green-2: #74a66f;
+      --amber: #c58b3a;
+      --clay: #a35d45;
+      --steel: #7e8a8b;
+      --blue: #476f82;
+      --shadow: 0 18px 60px rgba(24, 28, 24, .14);
+      --radius: 8px;
+      --slide-pad: 48px;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      max-width: 100%;
+      min-height: 100%;
+      overflow-x: hidden;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--font);
+      letter-spacing: 0;
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .deck {
+      position: relative;
+      width: 100%;
+      max-width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, rgba(21, 24, 21, .05) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(180deg, rgba(21, 24, 21, .04) 1px, transparent 1px) 0 0 / 48px 48px,
+        radial-gradient(circle at 12% 88%, rgba(116, 166, 111, .12), transparent 26%),
+        var(--paper);
+    }
+
+    .progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 30;
+      height: 4px;
+      width: 100%;
+      background: rgba(21, 24, 21, .08);
+    }
+
+    .progress span {
+      display: block;
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, var(--green), var(--amber));
+      transition: width .28s ease;
+    }
+
+    .toolbar {
+      position: fixed;
+      right: 22px;
+      bottom: 20px;
+      z-index: 35;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 6px;
+      border: 1px solid rgba(21, 24, 21, .14);
+      border-radius: var(--radius);
+      background: rgba(251, 250, 246, .82);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 10px 34px rgba(21, 24, 21, .11);
+    }
+
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(21, 24, 21, .14);
+      border-radius: 6px;
+      background: #fffdfa;
+      color: var(--ink);
+      cursor: pointer;
+      transition: transform .16s ease, border-color .16s ease, background .16s ease;
+    }
+
+    .icon-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(30, 107, 74, .45);
+      background: #f7fff6;
+    }
+
+    .counter {
+      min-width: 58px;
+      padding: 0 6px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(380px, 42%);
+      gap: 34px;
+      align-items: center;
+      padding: var(--slide-pad);
+      opacity: 0;
+      transform: translateX(28px);
+      pointer-events: none;
+      transition: opacity .32s ease, transform .32s ease;
+    }
+
+    .slide.active {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    .slide.full {
+      grid-template-columns: minmax(0, 1fr);
+      align-items: stretch;
+    }
+
+    .kicker {
+      margin: 0 0 18px;
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 750;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      max-width: 900px;
+      margin-bottom: 20px;
+      font-size: 64px;
+      line-height: .98;
+      font-weight: 760;
+    }
+
+    h2 {
+      max-width: 860px;
+      margin-bottom: 18px;
+      font-size: 46px;
+      line-height: 1.03;
+      font-weight: 740;
+    }
+
+    h3 {
+      margin-bottom: 10px;
+      font-size: 19px;
+      line-height: 1.24;
+    }
+
+    .lead {
+      max-width: 760px;
+      margin-bottom: 28px;
+      color: var(--muted);
+      font-size: 21px;
+      line-height: 1.58;
+    }
+
+    .tight {
+      max-width: 700px;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.62;
+    }
+
+    .eyebrow-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 22px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .eyebrow-list li,
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 6px 10px;
+      border: 1px solid rgba(21, 24, 21, .13);
+      border-radius: 6px;
+      background: rgba(255, 253, 250, .74);
+      color: var(--graphite-2);
+      font-size: 13px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .statement {
+      display: grid;
+      gap: 12px;
+      max-width: 920px;
+    }
+
+    .statement-row {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+      padding: 16px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .statement-row strong {
+      color: var(--green);
+      font-size: 15px;
+      text-transform: uppercase;
+    }
+
+    .statement-row span {
+      font-size: 22px;
+      line-height: 1.38;
+    }
+
+    .compare-grid,
+    .node-grid,
+    .metric-grid,
+    .ask-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .compare-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-top: 28px;
+    }
+
+    .node-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-top: 22px;
+    }
+
+    .metric-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 22px;
+    }
+
+    .ask-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      margin-top: 24px;
+    }
+
+    .card,
+    .metric,
+    .ask {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(251, 250, 246, .82);
+      box-shadow: 0 10px 36px rgba(21, 24, 21, .08);
+    }
+
+    .card {
+      padding: 18px;
+    }
+
+    .card p,
+    .metric p,
+    .ask p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .card .num {
+      display: block;
+      margin-bottom: 12px;
+      color: var(--green);
+      font-weight: 780;
+      font-size: 13px;
+    }
+
+    .metric,
+    .ask {
+      padding: 16px;
+    }
+
+    .metric strong,
+    .ask strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 24px;
+      line-height: 1.1;
+    }
+
+    .ask strong {
+      font-size: 18px;
+    }
+
+    .architecture {
+      display: grid;
+      gap: 10px;
+      margin-top: 28px;
+      max-width: 780px;
+    }
+
+    .layer {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr);
+      gap: 18px;
+      align-items: center;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 250, .82);
+    }
+
+    .layer strong {
+      color: var(--graphite);
+      font-size: 15px;
+    }
+
+    .layer span {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.44;
+    }
+
+    .roadmap {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .gate {
+      min-height: 144px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 250, .82);
+    }
+
+    .gate time {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 760;
+    }
+
+    .gate strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 16px;
+      line-height: 1.2;
+    }
+
+    .gate p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .notes-panel {
+      position: fixed;
+      left: 22px;
+      bottom: 20px;
+      z-index: 34;
+      width: 390px;
+      max-width: calc(100vw - 140px);
+      max-height: 38vh;
+      overflow: auto;
+      padding: 16px;
+      border: 1px solid rgba(21, 24, 21, .14);
+      border-radius: var(--radius);
+      background: rgba(251, 250, 246, .94);
+      color: var(--graphite);
+      box-shadow: 0 14px 44px rgba(21, 24, 21, .12);
+      transform: translateY(18px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+
+    .notes-panel.open {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .notes-panel strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--green);
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+
+    .notes-panel p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .visual {
+      min-width: 0;
+    }
+
+    .room-visual {
+      position: relative;
+      min-height: 540px;
+      border: 1px solid rgba(21, 24, 21, .12);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.28), transparent 42%),
+        linear-gradient(160deg, #f7f4ec, #dedbd1);
+      box-shadow: var(--shadow);
+    }
+
+    .room-visual::before {
+      content: "";
+      position: absolute;
+      inset: 40px 36px 74px;
+      border: 2px solid rgba(21, 24, 21, .16);
+      transform: skewY(-9deg);
+      transform-origin: center;
+      background:
+        linear-gradient(90deg, rgba(21, 24, 21, .06) 1px, transparent 1px) 0 0 / 36px 36px,
+        linear-gradient(180deg, rgba(21, 24, 21, .05) 1px, transparent 1px) 0 0 / 36px 36px,
+        #ece8dd;
+    }
+
+    .room-visual::after {
+      content: "";
+      position: absolute;
+      left: 42px;
+      right: 42px;
+      bottom: 42px;
+      height: 36px;
+      border-radius: 4px;
+      background: linear-gradient(180deg, rgba(21, 24, 21, .13), rgba(21, 24, 21, .03));
+      transform: skewX(-18deg);
+      opacity: .5;
+    }
+
+    .wall {
+      position: absolute;
+      top: 76px;
+      left: 62px;
+      width: 154px;
+      height: 330px;
+      border: 1px solid rgba(21, 24, 21, .18);
+      border-radius: 6px;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,.42), transparent),
+        #c9c4b9;
+      transform: skewY(-9deg);
+      box-shadow: 12px 20px 28px rgba(21, 24, 21, .14);
+    }
+
+    .wall::before,
+    .wall::after {
+      content: "";
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      height: 2px;
+      background: rgba(21, 24, 21, .12);
+    }
+
+    .wall::before {
+      top: 110px;
+    }
+
+    .wall::after {
+      top: 220px;
+    }
+
+    .exit-light {
+      position: absolute;
+      right: 18px;
+      bottom: 34px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--green-2);
+      box-shadow: 0 0 0 8px rgba(116, 166, 111, .18);
+    }
+
+    .node {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      min-width: 76px;
+      height: 54px;
+      padding: 0 10px;
+      border: 1px solid rgba(21, 24, 21, .26);
+      border-radius: 6px;
+      background: linear-gradient(180deg, #fefdf8, #d8d4ca);
+      color: var(--graphite);
+      font-size: 12px;
+      font-weight: 760;
+      text-align: center;
+      box-shadow: 10px 16px 24px rgba(21, 24, 21, .14);
+      transform: skewY(-9deg);
+    }
+
+    .node::after {
+      content: "";
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: -7px;
+      height: 7px;
+      border-radius: 0 0 5px 5px;
+      background: rgba(21, 24, 21, .2);
+    }
+
+    .node.table-a {
+      left: 255px;
+      top: 276px;
+      width: 124px;
+      background: linear-gradient(180deg, #fffef8, #d9ded7);
+    }
+
+    .node.table-b {
+      left: 350px;
+      top: 232px;
+      width: 112px;
+      background: linear-gradient(180deg, #fffef8, #e2d5c0);
+    }
+
+    .node.media {
+      right: 72px;
+      top: 140px;
+      width: 102px;
+      background: linear-gradient(180deg, #f9fbfb, #cbd4d5);
+    }
+
+    .node.bed {
+      left: 292px;
+      bottom: 96px;
+      width: 168px;
+      height: 66px;
+      background: linear-gradient(180deg, #fffdf7, #d8c9bd);
+    }
+
+    .node.ambient {
+      right: 124px;
+      bottom: 118px;
+      width: 96px;
+      background: linear-gradient(180deg, #fff8e8, #e0c785);
+    }
+
+    .node.dock {
+      left: 86px;
+      bottom: 106px;
+      width: 98px;
+      background: linear-gradient(180deg, #f5f7f7, #bfc8c8);
+    }
+
+    .path {
+      position: absolute;
+      height: 4px;
+      border-radius: 999px;
+      background: repeating-linear-gradient(90deg, rgba(30, 107, 74, .78) 0 22px, transparent 22px 34px);
+      opacity: .9;
+      transform-origin: left center;
+    }
+
+    .path.one {
+      left: 200px;
+      top: 380px;
+      width: 300px;
+      transform: rotate(-14deg);
+    }
+
+    .path.two {
+      left: 354px;
+      top: 256px;
+      width: 210px;
+      transform: rotate(16deg);
+      background: repeating-linear-gradient(90deg, rgba(197, 139, 58, .85) 0 18px, transparent 18px 30px);
+    }
+
+    .safe-zone {
+      position: absolute;
+      right: 56px;
+      bottom: 58px;
+      width: 210px;
+      height: 140px;
+      border: 2px dashed rgba(163, 93, 69, .72);
+      border-radius: 8px;
+      transform: skewY(-9deg);
+      background: rgba(163, 93, 69, .06);
+    }
+
+    .caption {
+      position: absolute;
+      left: 28px;
+      right: 28px;
+      bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .caption strong {
+      color: var(--green);
+    }
+
+    .system-map {
+      display: grid;
+      gap: 12px;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .system-step {
+      display: grid;
+      grid-template-columns: 132px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+      min-height: 58px;
+      padding: 12px 14px;
+      border: 1px solid rgba(21, 24, 21, .12);
+      border-radius: 6px;
+      background: #fffdfa;
+    }
+
+    .system-step strong {
+      color: var(--green);
+      font-size: 14px;
+    }
+
+    .system-step span {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.42;
+    }
+
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    .flow span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 8px 10px;
+      border: 1px solid rgba(21, 24, 21, .12);
+      border-radius: 6px;
+      background: #fffdfa;
+      color: var(--graphite);
+      font-size: 13px;
+      font-weight: 680;
+    }
+
+    .scene-list {
+      display: grid;
+      gap: 12px;
+      max-width: 760px;
+      margin-top: 24px;
+    }
+
+    .scene-item {
+      display: grid;
+      grid-template-columns: 112px minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 250, .78);
+    }
+
+    .scene-item strong {
+      color: var(--green);
+      font-size: 14px;
+      text-transform: uppercase;
+    }
+
+    .scene-item p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .source-line {
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .source-line a {
+      color: var(--green);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(30, 107, 74, .35);
+    }
+
+    .print-title {
+      display: none;
+    }
+
+    @media (max-width: 1120px) {
+      :root {
+        --slide-pad: 34px;
+      }
+
+      .slide {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+        overflow-y: auto;
+      }
+
+      h1 {
+        font-size: 46px;
+      }
+
+      h2 {
+        font-size: 36px;
+      }
+
+      .lead {
+        font-size: 19px;
+      }
+
+      .visual {
+        width: 100%;
+      }
+
+      .room-visual {
+        min-height: 460px;
+      }
+
+      .compare-grid,
+      .node-grid,
+      .metric-grid,
+      .ask-grid,
+      .roadmap {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 680px) {
+      :root {
+        --slide-pad: 22px;
+      }
+
+      body {
+        overflow: hidden;
+      }
+
+      .slide {
+        gap: 22px;
+        padding-bottom: 92px;
+      }
+
+      .slide > main,
+      .slide > .visual {
+        width: 100%;
+        max-width: 346px;
+        justify-self: start;
+      }
+
+      h1 {
+        font-size: 34px;
+      }
+
+      h2 {
+        font-size: 29px;
+      }
+
+      .lead {
+        font-size: 17px;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+      }
+
+      .statement-row,
+      .layer,
+      .system-step,
+      .scene-item {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .compare-grid,
+      .node-grid,
+      .metric-grid,
+      .ask-grid,
+      .roadmap {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .toolbar {
+        right: auto;
+        left: 50%;
+        bottom: 12px;
+        max-width: calc(100vw - 24px);
+        gap: 6px;
+        transform: translateX(-50%);
+      }
+
+      .icon-btn {
+        width: 36px;
+        height: 36px;
+      }
+
+      .counter {
+        min-width: 48px;
+      }
+
+      .eyebrow-list li,
+      .tag {
+        flex: 1 1 100%;
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+
+      .notes-panel {
+        left: 12px;
+        right: 12px;
+        bottom: 68px;
+        width: auto;
+        max-width: none;
+      }
+
+      .room-visual {
+        min-height: 420px;
+      }
+
+      .room-visual::before {
+        inset: 38px 20px 72px;
+      }
+
+      .wall {
+        left: 34px;
+        width: 116px;
+      }
+
+      .node.table-a {
+        left: 146px;
+        top: 248px;
+        width: 108px;
+      }
+
+      .node.table-b {
+        left: 208px;
+        top: 172px;
+        width: 96px;
+      }
+
+      .node.media {
+        right: 18px;
+        top: 106px;
+        width: 88px;
+      }
+
+      .node.bed {
+        left: 126px;
+        bottom: 116px;
+        width: 118px;
+      }
+
+      .node.ambient {
+        right: 18px;
+        bottom: 108px;
+        width: 88px;
+      }
+
+      .node.dock {
+        left: 40px;
+        bottom: 92px;
+      }
+
+      .path.one {
+        left: 124px;
+        top: 342px;
+        width: 176px;
+      }
+
+      .path.two {
+        left: 190px;
+        top: 236px;
+        width: 122px;
+      }
+
+      .safe-zone {
+        right: 18px;
+        bottom: 56px;
+        width: 118px;
+        height: 110px;
+      }
+
+      .caption {
+        display: block;
+      }
+
+      .caption span {
+        display: block;
+        margin-bottom: 4px;
+      }
+    }
+
+    @media print {
+      body {
+        overflow: visible;
+        background: #fff;
+      }
+
+      .deck {
+        height: auto;
+        overflow: visible;
+        background: #fff;
+      }
+
+      .progress,
+      .toolbar,
+      .notes-panel {
+        display: none;
+      }
+
+      .print-title {
+        display: block;
+        margin-bottom: 12px;
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 760;
+        text-transform: uppercase;
+      }
+
+      .slide,
+      .slide.active {
+        position: relative;
+        display: grid;
+        min-height: 100vh;
+        page-break-after: always;
+        opacity: 1;
+        transform: none;
+        pointer-events: auto;
+      }
+
+      .slide {
+        grid-template-columns: minmax(0, 1fr) minmax(300px, 40%);
+      }
+
+      .slide.full {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .room-visual,
+      .system-map,
+      .card,
+      .metric,
+      .ask,
+      .gate {
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck" id="deck">
+    <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+
+    <section class="slide active" data-notes="Opening thesis: do not sell robotic furniture as a gadget. Sell a new execution layer for physical space, then make it believable with a 2026 room-scale demo.">
+      <main>
+        <p class="print-title">Slide 1</p>
+        <p class="kicker">SpatialOS / Investor Deck</p>
+        <h1>SpatialOS for Active Furniture Ecosystems</h1>
+        <p class="lead">让空间成为 AI agent 可调用、可记忆、可协调、可安全执行的物理运行时。</p>
+        <ul class="eyebrow-list">
+          <li>Space-centric computing</li>
+          <li>5+ node offline demo by 2026</li>
+          <li>Supervised autonomy</li>
+        </ul>
+      </main>
+      <aside class="visual">
+        <div class="room-visual" aria-label="Isometric micro apartment with active furniture nodes">
+          <div class="wall"><span class="exit-light"></span></div>
+          <div class="path one"></div>
+          <div class="path two"></div>
+          <div class="safe-zone"></div>
+          <div class="node table-a">TableNode A</div>
+          <div class="node table-b">TableNode B</div>
+          <div class="node media">Media</div>
+          <div class="node bed">SoftBed</div>
+          <div class="node ambient">Ambient</div>
+          <div class="node dock">Dock</div>
+          <div class="caption"><span><strong>Before:</strong> static room</span><span><strong>After:</strong> executable environment</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="slide" data-notes="Set the category. The ambition is not another smart-home panel; the room becomes the computational object.">
+      <main>
+        <p class="print-title">Slide 2</p>
+        <p class="kicker">The Shift</p>
+        <h2>The room becomes the computer.</h2>
+        <p class="lead">过去四十年，计算中心从 PC 到手机、云和 AI agent。物理空间仍然停在上一代：设备联网了，但空间本身不会记忆、协调或执行。</p>
+        <div class="statement">
+          <div class="statement-row"><strong>Past</strong><span>Devices respond to commands.</span></div>
+          <div class="statement-row"><strong>Now</strong><span>AI understands intent, but cannot reliably act in the room.</span></div>
+          <div class="statement-row"><strong>Next</strong><span>Space coordinates objects, energy, permissions, memory, and motion.</span></div>
+        </div>
+      </main>
+      <aside class="visual">
+        <div class="system-map">
+          <div class="system-step"><strong>Device-centric</strong><span>手机、App、遥控器、语音助手各自控制一个设备。</span></div>
+          <div class="system-step"><strong>Agent-centric</strong><span>AI 可以理解目标，却缺少可验证的物理执行接口。</span></div>
+          <div class="system-step"><strong>Space-centric</strong><span>房间维护状态、分配资源、调度节点，并留下可审计记录。</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="slide full" data-notes="Frame the pain as cognitive and physical overhead, not simply lack of automation. This supports the dumb-device philosophy.">
+      <main>
+        <p class="print-title">Slide 3</p>
+        <p class="kicker">Problem</p>
+        <h2>Homes are full of smart devices. The space is still dumb.</h2>
+        <p class="lead">用户依然需要自己找、拿、搬、布置、恢复空间。所谓智能家居大多只是开关控制，家具仍是静态资产，机器人仍是孤立个体。</p>
+        <div class="compare-grid">
+          <article class="card"><span class="num">01</span><h3>Fragmented control</h3><p>灯光、屏幕、窗帘、储物、机器人各自有接口，没有统一的空间执行语义。</p></article>
+          <article class="card"><span class="num">02</span><h3>Static furniture</h3><p>家具定义了生活方式，却无法根据人的意图重构房间状态。</p></article>
+          <article class="card"><span class="num">03</span><h3>High cognitive load</h3><p>用户仍然承担记忆物品、组织空间、处理失败和恢复秩序的成本。</p></article>
+        </div>
+      </main>
+    </section>
+
+    <section class="slide" data-notes="Answer why this is possible now without overclaiming. Mention ROS dates carefully: Jazzy is stable baseline; Lyrical GA is after May 22, 2026.">
+      <main>
+        <p class="print-title">Slide 4</p>
+        <p class="kicker">Why Now</p>
+        <h2>The missing layer is coordination, not one smarter object.</h2>
+        <p class="lead">LLM、机器人中间件、低成本传感器、边缘计算和仿真栈同时成熟。现在可以把 agent 的意图变成可验证的空间任务。</p>
+        <div class="flow">
+          <span>LLM planning</span><span>ROS 2 Jazzy baseline</span><span>Nav2</span><span>BehaviorTree.CPP</span><span>Redis/PostGIS</span><span>Zenoh</span><span>Gazebo / Isaac Sim</span>
+        </div>
+        <p class="source-line">ROS 2 Jazzy: 2024-05-23 release, EOL 2029-05. Lyrical: 2026-05 LTS, GA 2026-05-22, EOL 2031-05. Sources: <a href="https://docs.ros.org/en/lyrical/Releases.html">Distributions</a>, <a href="https://docs.ros.org/en/lyrical/The-ROS2-Project/Release-Schedule.html">Release Schedule</a>, <a href="https://docs.ros.org/en/humble/Releases/Release-Lyrical-Luth.html">Lyrical schedule</a>.</p>
+      </main>
+      <aside class="visual">
+        <div class="system-map">
+          <div class="system-step"><strong>Use today</strong><span>Jazzy as stable engineering baseline for the demo.</span></div>
+          <div class="system-step"><strong>Evaluate after GA</strong><span>Lyrical compatibility after 2026-05-22.</span></div>
+          <div class="system-step"><strong>Do not overbuild</strong><span>Open-RMF is optional; NEAT stays in 2027 R&amp;D.</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="slide" data-notes="Define SpatialOS as the product. Keep this slide crisp: it is the operating layer above ROS and below the user experience.">
+      <main>
+        <p class="print-title">Slide 5</p>
+        <p class="kicker">Product Vision</p>
+        <h2>SpatialOS makes physical space safely executable.</h2>
+        <p class="lead">它不是智能家居 App，也不是 ROS 2，也不是单一 AI agent。它维护空间状态、对象可供性、权限、安全 envelope、能源状态和执行记录。</p>
+        <div class="architecture">
+          <div class="layer"><strong>Human / Agent Intent</strong><span>用户只表达目标，不操作复杂控制面板。</span></div>
+          <div class="layer"><strong>SpatialOS Runtime</strong><span>状态图、可供性、预约、任务图、安全裁决、反馈账本。</span></div>
+          <div class="layer"><strong>Furniture Nodes</strong><span>仓储、移动升降、屏幕、灯光、充电、安全锚点。</span></div>
+        </div>
+      </main>
+      <aside class="visual">
+        <div class="system-map">
+          <div class="system-step"><strong>Model proposes</strong><span>LLM 只生成候选意图和解释，不碰电机。</span></div>
+          <div class="system-step"><strong>OS verifies</strong><span>SpatialOS 验证权限、路径、资源、安全约束。</span></div>
+          <div class="system-step"><strong>Hardware executes</strong><span>节点固件执行低层闭环，异常时 fail-stop。</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="slide" data-notes="Explain the beachhead. Furniture is not the end category; it is the first physical proof of the space runtime.">
+      <main>
+        <p class="print-title">Slide 6</p>
+        <p class="kicker">First Beachhead</p>
+        <h2>Active furniture is the clearest proof of space execution.</h2>
+        <p class="lead">家具高频、物理性强、边界可定义。它比通用家用机器人更容易做出安全、可重复、可感知价值的第一个闭环。</p>
+        <div class="metric-grid">
+          <article class="metric"><strong>20-40 m²</strong><p>可控微型住宅展区</p></article>
+          <article class="metric"><strong>5-7</strong><p>同场 node 生态</p></article>
+          <article class="metric"><strong>6-8 min</strong><p>连续现场演示</p></article>
+          <article class="metric"><strong>0.3 m/s</strong><p>低速安全展示上限</p></article>
+        </div>
+      </main>
+      <aside class="visual">
+        <div class="room-visual" aria-label="Room execution layer diagram">
+          <div class="wall"><span class="exit-light"></span></div>
+          <div class="safe-zone"></div>
+          <div class="node table-a">Desk</div>
+          <div class="node table-b">Side</div>
+          <div class="node media">Screen</div>
+          <div class="node bed">Rest</div>
+          <div class="node ambient">Light</div>
+          <div class="node dock">Dock</div>
+          <div class="caption"><span><strong>Beachhead:</strong> room-scale proof</span><span>Not a gadget demo</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="slide full" data-notes="Use the user's three robot categories exactly, but translate them into an investable node architecture.">
+      <main>
+        <p class="print-title">Slide 7</p>
+        <p class="kicker">Three Node Classes</p>
+        <h2>Every node is a dumb device. SpatialOS makes the ecosystem intelligent.</h2>
+        <p class="lead">目标不是让每个物体表现得像机器人，而是用极简 interface 降低人的认知负担和使用成本。</p>
+        <div class="node-grid">
+          <article class="card"><span class="num">Storage</span><h3>StorageWall</h3><p>贴墙大体量储物或空间隔断。识别、标签、实体与数字储存、retrieve；外部只有入口、出口和状态灯。</p></article>
+          <article class="card"><span class="num">Universal</span><h3>TableNode A/B</h3><p>可移动、可升降、可组合，有一定仓储能力；组成桌面、床边、递送台、早餐区。</p></article>
+          <article class="card"><span class="num">Ambient</span><h3>Media / IoT Nodes</h3><p>灯、空调、窗帘、屏幕、电脑、电源、香氛等嫁接节点，参与体验配置和能源调度。</p></article>
+        </div>
+      </main>
+    </section>
+
+    <section class="slide" data-notes="First demo story: show a room converting itself from rest to work. The audience should understand the value without a technical preamble.">
+      <main>
+        <p class="print-title">Slide 8</p>
+        <p class="kicker">Demo Story 01</p>
+        <h2>Wake To Work</h2>
+        <p class="lead">用户只说“开始工作”。房间确认床上无人、路径可用，然后释放办公区域、移动桌面、对接屏幕、调节灯光，并从仓储节点预取工作物品。</p>
+        <div class="scene-list">
+          <div class="scene-item"><strong>Intent</strong><p>Prepare focus mode for one person.</p></div>
+          <div class="scene-item"><strong>Nodes</strong><p>SoftBed 退场，TableNode A 升降定位，Media/Compute 对接，Ambient 调光。</p></div>
+          <div class="scene-item"><strong>Signal</strong><p>出口绿灯亮，桌面灯线变绿，屏幕显示 Focus ready。</p></div>
+        </div>
+      </main>
+      <aside class="visual">
+        <div class="room-visual" aria-label="Wake to Work demo room">
+          <div class="wall"><span class="exit-light"></span></div>
+          <div class="path one"></div>
+          <div class="node table-a">Work desk</div>
+          <div class="node media">Screen</div>
+          <div class="node ambient">Focus light</div>
+          <div class="node bed">Bed stacks</div>
+          <div class="node dock">Dock</div>
+          <div class="caption"><span><strong>State change:</strong> rest to work</span><span>Supervised autonomy</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="slide" data-notes="Second story: storage is the emotional killer feature. Keep it quiet, not robotic theatrics.">
+      <main>
+        <p class="print-title">Slide 9</p>
+        <p class="kicker">Demo Story 02</p>
+        <h2>Retrieve Without Searching</h2>
+        <p class="lead">“把昨天会议用的白色转接头拿出来。” SpatialOS 查询环境记忆，StorageWall 内部检索，TableNode B 到出口接物并递送。</p>
+        <div class="scene-list">
+          <div class="scene-item"><strong>Memory</strong><p>物品不是被用户记住，而是被空间状态和反馈账本记住。</p></div>
+          <div class="scene-item"><strong>Safety</strong><p>人进入路径时节点降速或停止，安全状态灯变琥珀色。</p></div>
+          <div class="scene-item"><strong>Interface</strong><p>用户只看到一个出口、一个绿灯、一个物品出现。</p></div>
+        </div>
+      </main>
+      <aside class="visual">
+        <div class="system-map">
+          <div class="system-step"><strong>Query</strong><span>WorldState + LedgerEvent locate the registered object.</span></div>
+          <div class="system-step"><strong>Reserve</strong><span>TableNode B receives a time window and safe path.</span></div>
+          <div class="system-step"><strong>Deliver</strong><span>StorageWall opens one quiet outlet; no exposed complex robotics.</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="slide" data-notes="Third story: prove ecosystem and day-to-day magic, but keep it grounded.">
+      <main>
+        <p class="print-title">Slide 10</p>
+        <p class="kicker">Demo Story 03</p>
+        <h2>Movie Night To Breakfast</h2>
+        <p class="lead">电影结束后，系统安排空闲节点回充；第二天早晨，两个 TableNode 组成早餐桌，Ambient 切到晨间光，StorageWall 推出杯子和餐垫。</p>
+        <div class="scene-list">
+          <div class="scene-item"><strong>Night</strong><p>Media Node 退场，Dock/Energy 安排补能。</p></div>
+          <div class="scene-item"><strong>Morning</strong><p>TableNode A/B 拼成早餐区域，保持通道可用。</p></div>
+          <div class="scene-item"><strong>Trust</strong><p>系统不声称自己决定一切，只是安全地执行用户设定的生活意图。</p></div>
+        </div>
+      </main>
+      <aside class="visual">
+        <div class="room-visual" aria-label="Movie night to breakfast demo room">
+          <div class="wall"><span class="exit-light"></span></div>
+          <div class="path two"></div>
+          <div class="node table-a">Breakfast A</div>
+          <div class="node table-b">Breakfast B</div>
+          <div class="node media">Media off</div>
+          <div class="node ambient">Morning</div>
+          <div class="node dock">Charging</div>
+          <div class="caption"><span><strong>Experience:</strong> space restores itself</span><span>5+ node ecosystem</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="slide" data-notes="This is the credibility slide. It makes the big vision investable by showing strict engineering boundaries.">
+      <main>
+        <p class="print-title">Slide 11</p>
+        <p class="kicker">Architecture</p>
+        <h2>Model proposes. OS verifies. Hardware executes.</h2>
+        <p class="lead">v1 不做端到端大模型控制，不做在线进化，不做真实硬件上的 NEAT/swarm。所有物理动作经过预约、行为树和安全内核。</p>
+        <div class="architecture">
+          <div class="layer"><strong>Intent API</strong><span>POST /intent, /plan/validate, /reservation/request, /task/dispatch</span></div>
+          <div class="layer"><strong>Core Objects</strong><span>NodeManifest, AffordanceMap, WorldState, Reservation, TaskGraph, SafetyEvent, LedgerEvent</span></div>
+          <div class="layer"><strong>Safety Boundary</strong><span>急停 &lt;100ms, human zone slowdown/stop, fail-stop on disconnect, manual takeover.</span></div>
+        </div>
+      </main>
+      <aside class="visual">
+        <div class="system-map">
+          <div class="system-step"><strong>LLM</strong><span>Candidate intent, non-real-time explanation.</span></div>
+          <div class="system-step"><strong>SpatialOS</strong><span>State graph, resource locks, BT execution, safety governance.</span></div>
+          <div class="system-step"><strong>Firmware</strong><span>Motor loop, BMS, limit switches, E-stop, controlled stop.</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="slide full" data-notes="Milestones must be concrete and dated. The audience should feel that the team knows where to stop.">
+      <main>
+        <p class="print-title">Slide 12</p>
+        <p class="kicker">Roadmap</p>
+        <h2>2026: prove a room-level furniture ecosystem can be coordinated.</h2>
+        <p class="lead">每个月都必须离线下 demo 更近，而不是离宏大愿景更近。</p>
+        <div class="roadmap">
+          <article class="gate"><time>2026-05-24</time><strong>Scope Freeze</strong><p>冻结 nodes、场景、场地、安全边界、降级版本。</p></article>
+          <article class="gate"><time>2026-06-21</time><strong>SpatialOS Skeleton</strong><p>意图到任务、节点注册、可供性、预约、日志、2 个仿真节点。</p></article>
+          <article class="gate"><time>2026-07-26</time><strong>Single Hardware Loop</strong><p>1 个真实移动节点跑通 ROS 2/Nav2/BT/急停/接管。</p></article>
+          <article class="gate"><time>2026-08-30</time><strong>3 Node Coordination</strong><p>3 个物理节点协同，空间锁和失败暂停可用。</p></article>
+          <article class="gate"><time>2026-10-04</time><strong>5 Node Alpha</strong><p>5+ nodes 端到端 demo，三类节点全部出现。</p></article>
+          <article class="gate"><time>2026-11-15</time><strong>Beta Reliability</strong><p>连续 20 次成功率 >=80%，恢复时间 <=5 分钟。</p></article>
+          <article class="gate"><time>2026-12-15</time><strong>Show Lock</strong><p>功能冻结，连续 3 天彩排，总成功率 >=85%。</p></article>
+          <article class="gate"><time>2026-12-18~31</time><strong>Offline Demo</strong><p>完成投资人/伙伴展示和视频记录。</p></article>
+        </div>
+      </main>
+    </section>
+
+    <section class="slide full" data-notes="Close with the ask and make it clear that funding goes into de-risking the physical proof, not building random furniture SKUs.">
+      <main>
+        <p class="print-title">Slide 13</p>
+        <p class="kicker">Ask</p>
+        <h2>Fund the first physical proof of a new space execution layer.</h2>
+        <p class="lead">融资不是为了做一堆家具，而是为了证明一个房间级 SpatialOS 闭环：可理解、可调度、可暂停、可接管、可审计。</p>
+        <div class="ask-grid">
+          <article class="ask"><strong>Team</strong><p>最低 7-9 人，理想 10-12 人。</p></article>
+          <article class="ask"><strong>Budget</strong><p>80-150 万人民币保守，150-300 万更稳妥。</p></article>
+          <article class="ask"><strong>Site</strong><p>20-40 平米微型住宅展区。</p></article>
+          <article class="ask"><strong>Hardware</strong><p>2 个移动节点 + 3-5 个低风险生态节点。</p></article>
+          <article class="ask"><strong>Partners</strong><p>高端住宅、展厅、未来办公、酒店、公寓。</p></article>
+        </div>
+        <p class="source-line">2027 R&amp;D: higher node count, multi-room expansion, Open-RMF integration, NEAT/swarm in simulation only, commercial pilots.</p>
+      </main>
+    </section>
+
+    <aside class="notes-panel" id="notesPanel" aria-live="polite">
+      <strong>Speaker notes</strong>
+      <p id="notesText"></p>
+    </aside>
+
+    <nav class="toolbar" aria-label="Deck controls">
+      <button class="icon-btn" id="prevBtn" title="Previous" aria-label="Previous slide">‹</button>
+      <span class="counter" id="counter">1 / 13</span>
+      <button class="icon-btn" id="nextBtn" title="Next" aria-label="Next slide">›</button>
+      <button class="icon-btn" id="notesBtn" title="Notes" aria-label="Toggle speaker notes">i</button>
+      <button class="icon-btn" id="printBtn" title="Print" aria-label="Print deck">⌘</button>
+    </nav>
+  </div>
+
+  <script>
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const progressBar = document.getElementById('progressBar');
+    const counter = document.getElementById('counter');
+    const notesPanel = document.getElementById('notesPanel');
+    const notesText = document.getElementById('notesText');
+    const notesBtn = document.getElementById('notesBtn');
+    let current = 0;
+    let notesOpen = false;
+
+    function setSlide(index) {
+      current = Math.max(0, Math.min(slides.length - 1, index));
+      slides.forEach((slide, i) => slide.classList.toggle('active', i === current));
+      progressBar.style.width = `${((current + 1) / slides.length) * 100}%`;
+      counter.textContent = `${current + 1} / ${slides.length}`;
+      notesText.textContent = slides[current].dataset.notes || '';
+      if (location.hash !== `#${current + 1}`) {
+        history.replaceState(null, '', `#${current + 1}`);
+      }
+    }
+
+    function move(delta) {
+      setSlide(current + delta);
+    }
+
+    document.getElementById('prevBtn').addEventListener('click', () => move(-1));
+    document.getElementById('nextBtn').addEventListener('click', () => move(1));
+    document.getElementById('printBtn').addEventListener('click', () => window.print());
+    notesBtn.addEventListener('click', () => {
+      notesOpen = !notesOpen;
+      notesPanel.classList.toggle('open', notesOpen);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      const key = event.key;
+      if (key === 'ArrowRight' || key === 'PageDown' || key === ' ') {
+        event.preventDefault();
+        move(1);
+      }
+      if (key === 'ArrowLeft' || key === 'PageUp') {
+        event.preventDefault();
+        move(-1);
+      }
+      if (key === 'Home') {
+        event.preventDefault();
+        setSlide(0);
+      }
+      if (key === 'End') {
+        event.preventDefault();
+        setSlide(slides.length - 1);
+      }
+      if (key.toLowerCase() === 'n') {
+        notesOpen = !notesOpen;
+        notesPanel.classList.toggle('open', notesOpen);
+      }
+      if (key.toLowerCase() === 'p') {
+        window.print();
+      }
+    });
+
+    window.addEventListener('hashchange', () => {
+      const nextIndex = Number.parseInt(location.hash.replace('#', ''), 10);
+      if (Number.isFinite(nextIndex) && nextIndex > 0) {
+        setSlide(nextIndex - 1);
+      }
+    });
+
+    const hashIndex = Number.parseInt(location.hash.replace('#', ''), 10);
+    if (Number.isFinite(hashIndex) && hashIndex > 0) {
+      setSlide(hashIndex - 1);
+    } else {
+      setSlide(0);
+    }
+  </script>
+</body>
+</html>
