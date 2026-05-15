@@ -1521,7 +1521,7 @@
         <div class="plain-demo">
           <article class="plain-step"><strong>中文解释</strong><p>第二类机器人像带平顶的移动柜子。系统把它们当成长方形积木，先拼出桌面，再交给运动规划层去安全移动。</p></article>
           <article class="plain-step"><strong>Plain English</strong><p>Each robot is a rectangular cabinet with a flat top. The planner chooses a set of cabinets and arranges them like table tiles.</p></article>
-          <article class="plain-step"><strong>安全边界</strong><p>本页只解决最终布局，不让机器人硬挤过去。移动路径、避障、急停和空间锁由下一层处理。</p></article>
+          <article class="plain-step"><strong>安全边界</strong><p>本页展示同步移动概念：每个柜子拿到自己的预约通道，真实硬件仍由运动规划、避障、急停和空间锁保护。</p></article>
           <article class="plain-step"><strong>Why Rush Hour matters</strong><p>Rush Hour shows that moving many rectangles can become very hard. So we split “where should they end up” from “how should they move there”.</p></article>
         </div>
       </main>
@@ -1543,16 +1543,17 @@
       <main>
         <p class="print-title">2D tabletop assembly</p>
         <p class="kicker">2D Demo Animation</p>
-        <h2>Each cycle picks a new integer tabletop size from 1m to 10m.</h2>
-        <p class="lead">动画里的每个小方块就是一个第二类机器人顶部。每轮结束后，长宽会随机变成 1-10 米内的整数；机器人逐个进入安全格子，移动中不重叠，合并后严丝合缝。</p>
+        <h2>A person asks for a platform in front; varied cabinets move together.</h2>
+        <p class="lead">空间里有一个人发出指令：“在我前方生成一个长宽指定的平台。” 不同长宽的柜子分布在房间各处，SpatialOS 先给出拼合方案，然后所有柜子同时移动到指定区域，移动中不重叠、不碰撞，合并后严丝合缝。</p>
         <div class="anim2d-wrap" aria-label="2D animation of rectangular robot modules assembling into a random table size">
           <canvas class="anim2d-canvas" id="table2dCanvas"></canvas>
           <div class="demo-status">
-            <span class="demo-pill" id="target2dLabel">Target: --</span>
-            <span class="demo-pill">No overlap while moving</span>
-            <span class="demo-pill">Seamless final grid</span>
+            <span class="demo-pill" id="target2dLabel">Command: --</span>
+            <span class="demo-pill">Parallel reserved lanes</span>
+            <span class="demo-pill">Varied cabinet sizes</span>
+            <span class="demo-pill">Flush final platform</span>
           </div>
-          <p class="anim-legend"><strong>Simple idea:</strong> choose exact 1m tiles, move one robot at a time through a safe lane, then lock into a gap-free rectangle.</p>
+          <p class="anim-legend"><strong>Simple idea:</strong> the room proposes a rectangle tiling, reserves a non-crossing path for every cabinet, then all selected cabinets converge at the same time.</p>
         </div>
       </main>
     </section>
@@ -1564,9 +1565,9 @@
       <main class="three-overlay">
         <p class="print-title">3D tabletop assembly</p>
         <p class="kicker">3D Demo Animation</p>
-        <h2>Cabinet robots align into a shared flat surface.</h2>
-        <p class="lead">The translucent green plane changes after every cycle. Boxes enter one by one from a safe aisle, so moving robots never overlap; the final tabletop is a tight rectangular grid.</p>
-        <div class="three-status" id="target3dLabel">Current target: --</div>
+        <h2>Room hears, plans, then cabinets move together.</h2>
+        <p class="lead">Different rectangular cabinet robots begin from different places in the room. SpatialOS assigns each one a final footprint and a reserved approach lane, so the group moves in parallel and finishes as one flat platform.</p>
+        <div class="three-status" id="target3dLabel">Command: --</div>
       </main>
     </section>
 
@@ -1744,10 +1745,13 @@ for p in plan.placements:
       const ctx = canvas2d.getContext('2d');
       const label = document.getElementById('target2dLabel');
       const colors = ['#fffef8', '#dfe7e1', '#ead9bd', '#dce4e5', '#f1e5ba', '#d9d7ce', '#e7efe4', '#ded8cb'];
-      let dimensions = null;
-      let cells = [];
+      const commandMs = 1200;
+      const planMs = 1250;
+      const moveMs = 4200;
+      const holdMs = 1700;
+      const spread = 2.15;
+      let plan = null;
       let cycleStart = performance.now();
-      let perCellMs = 120;
 
       function easeInOut(t) {
         return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
@@ -1760,24 +1764,74 @@ for p in plan.placements:
             length: Math.floor(Math.random() * 10) + 1,
             width: Math.floor(Math.random() * 10) + 1,
           };
-        } while (previous && next.length === previous.length && next.width === previous.width);
+        } while (
+          next.length * next.width < 6 ||
+          (previous && next.length === previous.length && next.width === previous.width)
+        );
         return next;
       }
 
-      function buildCells(nextDimensions) {
-        const out = [];
-        for (let row = nextDimensions.width - 1; row >= 0; row -= 1) {
-          for (let col = 0; col < nextDimensions.length; col += 1) {
-            out.push({ row, col });
-          }
+      function splitRect(rect, out, depth = 0) {
+        const area = rect.w * rect.h;
+        if (area <= 3 || (area <= 9 && depth > 1 && Math.random() < 0.34) || out.length > 13) {
+          out.push(rect);
+          return;
         }
-        return out;
+
+        const canSplitW = rect.w > 1;
+        const canSplitH = rect.h > 1;
+        if (!canSplitW && !canSplitH) {
+          out.push(rect);
+          return;
+        }
+
+        let splitVertical = canSplitW && (!canSplitH || rect.w >= rect.h ? Math.random() > 0.25 : Math.random() > 0.58);
+        if (splitVertical) {
+          const cut = Math.floor(Math.random() * (rect.w - 1)) + 1;
+          splitRect({ x: rect.x, y: rect.y, w: cut, h: rect.h }, out, depth + 1);
+          splitRect({ x: rect.x + cut, y: rect.y, w: rect.w - cut, h: rect.h }, out, depth + 1);
+        } else {
+          const cut = Math.floor(Math.random() * (rect.h - 1)) + 1;
+          splitRect({ x: rect.x, y: rect.y, w: rect.w, h: cut }, out, depth + 1);
+          splitRect({ x: rect.x, y: rect.y + cut, w: rect.w, h: rect.h - cut }, out, depth + 1);
+        }
+      }
+
+      function includeRect(bounds, cx, cy, w, h) {
+        bounds.minX = Math.min(bounds.minX, cx - w / 2);
+        bounds.maxX = Math.max(bounds.maxX, cx + w / 2);
+        bounds.minY = Math.min(bounds.minY, cy - h / 2);
+        bounds.maxY = Math.max(bounds.maxY, cy + h / 2);
+      }
+
+      function buildPlan(nextDimensions) {
+        const rectangles = [];
+        splitRect({ x: 0, y: 0, w: nextDimensions.length, h: nextDimensions.width }, rectangles);
+        rectangles.sort((a, b) => (a.y - b.y) || (a.x - b.x) || (b.w * b.h - a.w * a.h));
+
+        const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+        const person = { x: 0, y: nextDimensions.width / 2 + 2.2 };
+        const modules = rectangles.map((rect, index) => {
+          const final = {
+            x: rect.x + rect.w / 2 - nextDimensions.length / 2,
+            y: rect.y + rect.h / 2 - nextDimensions.width / 2,
+          };
+          const start = { x: final.x * spread, y: final.y * spread };
+          includeRect(bounds, final.x, final.y, rect.w, rect.h);
+          includeRect(bounds, start.x, start.y, rect.w, rect.h);
+          return { ...rect, index, final, start };
+        });
+
+        includeRect(bounds, person.x, person.y, 1.1, 1.2);
+        bounds.minX -= 1.2;
+        bounds.maxX += 1.2;
+        bounds.minY -= 1.4;
+        bounds.maxY += 2.2;
+        return { dimensions: nextDimensions, modules, person, bounds };
       }
 
       function beginCycle(time) {
-        dimensions = randomDimensions(dimensions);
-        cells = buildCells(dimensions);
-        perCellMs = Math.max(48, Math.min(180, 5400 / Math.max(1, cells.length)));
+        plan = buildPlan(randomDimensions(plan && plan.dimensions));
         cycleStart = time;
       }
 
@@ -1797,95 +1851,151 @@ for p in plan.placements:
       }
 
       function layoutFor(view) {
-        const availableW = Math.max(180, view.width - 120);
-        const availableH = Math.max(220, view.height - 184);
-        const cell = Math.max(20, Math.min(52, Math.floor(availableW / dimensions.length), Math.floor(availableH / (dimensions.width + 1.8))));
-        const tableW = dimensions.length * cell;
-        const tableH = dimensions.width * cell;
-        const left = Math.round((view.width - tableW) / 2);
-        const top = Math.round(Math.max(106, (view.height - tableH) / 2 + 30));
-        const startY = top - cell * 1.72;
-        return { cell, tableW, tableH, left, top, startY };
+        const worldW = plan.bounds.maxX - plan.bounds.minX;
+        const worldH = plan.bounds.maxY - plan.bounds.minY;
+        const unit = Math.max(16, Math.min((view.width - 64) / worldW, (view.height - 118) / worldH));
+        const left = (view.width - worldW * unit) / 2;
+        const top = 76 + Math.max(0, (view.height - 118 - worldH * unit) / 2);
+        return { unit, left, top };
       }
 
-      function drawBackground(view, layout) {
+      function toPixel(point, layout) {
+        return {
+          x: layout.left + (point.x - plan.bounds.minX) * layout.unit,
+          y: layout.top + (point.y - plan.bounds.minY) * layout.unit,
+        };
+      }
+
+      function drawWorldRect(cx, cy, w, h, layout, fill, stroke, lineWidth = 1) {
+        const topLeft = toPixel({ x: cx - w / 2, y: cy - h / 2 }, layout);
+        const width = w * layout.unit;
+        const height = h * layout.unit;
+        if (fill) {
+          ctx.fillStyle = fill;
+          ctx.fillRect(topLeft.x, topLeft.y, width, height);
+        }
+        if (stroke) {
+          ctx.lineWidth = lineWidth;
+          ctx.strokeStyle = stroke;
+          ctx.strokeRect(topLeft.x + 0.5, topLeft.y + 0.5, width - 1, height - 1);
+        }
+        return { x: topLeft.x, y: topLeft.y, width, height };
+      }
+
+      function drawBackground(view, layout, phase) {
         ctx.clearRect(0, 0, view.width, view.height);
-        ctx.fillStyle = 'rgba(255, 253, 250, 0.38)';
-        ctx.fillRect(layout.left, layout.top, layout.tableW, layout.tableH);
+        const target = drawWorldRect(0, 0, plan.dimensions.length, plan.dimensions.width, layout, 'rgba(30, 107, 74, 0.06)', 'rgba(30, 107, 74, 0.82)', 2);
         ctx.save();
-        ctx.setLineDash([8, 8]);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = 'rgba(30, 107, 74, 0.88)';
-        ctx.strokeRect(layout.left, layout.top, layout.tableW, layout.tableH);
+        ctx.setLineDash([7, 7]);
+        ctx.strokeStyle = 'rgba(30, 107, 74, 0.42)';
+        ctx.lineWidth = 1.2;
+        for (const module of plan.modules) {
+          drawWorldRect(module.final.x, module.final.y, module.w, module.h, layout, null, 'rgba(30, 107, 74, 0.32)', 1);
+        }
         ctx.restore();
 
-        ctx.save();
-        ctx.setLineDash([6, 7]);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = 'rgba(163, 93, 69, 0.72)';
-        ctx.beginPath();
-        ctx.moveTo(layout.left - layout.cell * 0.5, layout.startY + layout.cell * 0.5);
-        ctx.lineTo(layout.left + layout.tableW + layout.cell * 0.5, layout.startY + layout.cell * 0.5);
-        ctx.stroke();
-        ctx.restore();
-
-        ctx.fillStyle = 'rgba(30, 107, 74, 0.9)';
+        ctx.fillStyle = 'rgba(30, 107, 74, 0.94)';
         ctx.font = '700 13px Inter, Arial, sans-serif';
-        ctx.fillText(`${dimensions.length}m x ${dimensions.width}m exact tabletop`, layout.left, layout.top - 14);
-        ctx.fillStyle = 'rgba(92, 74, 60, 0.72)';
-        ctx.fillText('safe one-way aisle: only one moving robot at a time', layout.left, layout.startY - 10);
+        ctx.fillText(`Front platform: ${plan.dimensions.length}m x ${plan.dimensions.width}m`, target.x, Math.max(92, target.y - 12));
+        ctx.fillStyle = 'rgba(92, 74, 60, 0.74)';
+        ctx.fillText(phase === 'plan' ? 'SpatialOS plan: exact tiling + reserved approach lanes' : 'All selected cabinets move in parallel', target.x, target.y + target.height + 20);
       }
 
-      function drawModule(x, y, size, index, moving) {
-        ctx.fillStyle = moving ? '#e9d7a4' : colors[index % colors.length];
-        ctx.fillRect(x, y, size, size);
-        ctx.lineWidth = moving ? 2 : 1;
-        ctx.strokeStyle = moving ? 'rgba(163, 93, 69, 0.9)' : 'rgba(21, 24, 21, 0.3)';
-        ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+      function drawPerson(layout) {
+        const p = toPixel(plan.person, layout);
+        ctx.fillStyle = '#2f3632';
+        ctx.fillRect(p.x - 6, p.y + 12, 12, 26);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 11, 0, Math.PI * 2);
+        ctx.fillStyle = '#d8b99b';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(21, 24, 21, 0.42)';
+        ctx.stroke();
 
-        if (size >= 34) {
+        const bubbleText = `前方做 ${plan.dimensions.length} x ${plan.dimensions.width} 米平台`;
+        const bubbleW = Math.min(232, Math.max(156, bubbleText.length * 10));
+        const bubbleX = Math.min(Math.max(18, p.x - bubbleW / 2), canvas2d.clientWidth - bubbleW - 18);
+        const bubbleY = Math.max(76, p.y - 76);
+        ctx.fillStyle = 'rgba(255, 253, 250, 0.92)';
+        ctx.strokeStyle = 'rgba(21, 24, 21, 0.16)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(bubbleX, bubbleY, bubbleW, 36, 7);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(21, 24, 21, 0.82)';
+        ctx.font = '700 13px Inter, Arial, sans-serif';
+        ctx.fillText(bubbleText, bubbleX + 11, bubbleY + 23);
+      }
+
+      function drawModule(module, position, layout, progress) {
+        const rect = drawWorldRect(
+          position.x,
+          position.y,
+          module.w,
+          module.h,
+          layout,
+          colors[module.index % colors.length],
+          progress >= 0.99 ? 'rgba(30, 107, 74, 0.72)' : 'rgba(21, 24, 21, 0.3)',
+          progress >= 0.99 ? 2 : 1
+        );
+
+        if (rect.width >= 42 && rect.height >= 28) {
           ctx.fillStyle = 'rgba(21, 24, 21, 0.76)';
           ctx.font = '700 11px Inter, Arial, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(`R${index + 1}`, x + size / 2, y + size / 2);
+          ctx.fillText(`${module.w}x${module.h}`, rect.x + rect.width / 2, rect.y + rect.height / 2);
           ctx.textAlign = 'start';
           ctx.textBaseline = 'alphabetic';
         }
       }
 
+      function drawPaths(layout) {
+        ctx.save();
+        ctx.setLineDash([4, 8]);
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = 'rgba(163, 93, 69, 0.34)';
+        for (const module of plan.modules) {
+          const start = toPixel(module.start, layout);
+          const final = toPixel(module.final, layout);
+          ctx.beginPath();
+          ctx.moveTo(start.x, start.y);
+          ctx.lineTo(final.x, final.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
       function draw2d(time) {
-        if (!dimensions) beginCycle(time);
+        if (!plan) beginCycle(time);
         const view = resizeCanvas();
         const layout = layoutFor(view);
-        const assemblyMs = cells.length * perCellMs;
-        const holdMs = 1150;
+        const totalMs = commandMs + planMs + moveMs + holdMs;
         let elapsed = time - cycleStart;
-        if (elapsed > assemblyMs + holdMs) {
+        if (elapsed > totalMs) {
           beginCycle(time);
           elapsed = 0;
         }
 
-        const activeIndex = Math.min(cells.length, Math.floor(elapsed / perCellMs));
-        const activeT = activeIndex < cells.length ? easeInOut((elapsed - activeIndex * perCellMs) / perCellMs) : 1;
-        drawBackground(view, layout);
+        const rawMoveProgress = (elapsed - commandMs - planMs) / moveMs;
+        const moveProgress = easeInOut(Math.max(0, Math.min(1, rawMoveProgress)));
+        const phase = elapsed < commandMs ? 'command' : elapsed < commandMs + planMs ? 'plan' : moveProgress < 1 ? 'move' : 'lock';
+        drawBackground(view, layout, phase);
+        drawPaths(layout);
+        drawPerson(layout);
 
-        const locked = Math.min(activeIndex, cells.length);
-        for (let i = 0; i < locked; i += 1) {
-          const cell = cells[i];
-          drawModule(layout.left + cell.col * layout.cell, layout.top + cell.row * layout.cell, layout.cell, i, false);
-        }
-
-        if (activeIndex < cells.length) {
-          const cell = cells[activeIndex];
-          const finalX = layout.left + cell.col * layout.cell;
-          const finalY = layout.top + cell.row * layout.cell;
-          const y = layout.startY + (finalY - layout.startY) * activeT;
-          drawModule(finalX, y, layout.cell, activeIndex, true);
+        for (const module of plan.modules) {
+          const position = {
+            x: module.start.x + (module.final.x - module.start.x) * moveProgress,
+            y: module.start.y + (module.final.y - module.start.y) * moveProgress,
+          };
+          drawModule(module, position, layout, moveProgress);
         }
 
         if (label) {
-          label.textContent = `Target: ${dimensions.length}m x ${dimensions.width}m | locked ${locked}/${cells.length}`;
+          const phaseLabel = phase === 'command' ? 'human command' : phase === 'plan' ? 'plan proposed' : phase === 'move' ? 'parallel move' : 'flush lock';
+          label.textContent = `Command: ${plan.dimensions.length}m x ${plan.dimensions.width}m ahead | ${plan.modules.length} cabinets | ${phaseLabel}`;
         }
         requestAnimationFrame(draw2d);
       }
@@ -1904,6 +2014,11 @@ for p in plan.placements:
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
       const centerX = 1.05;
+      const commandMs = 1200;
+      const planMs = 1250;
+      const moveMs = 4200;
+      const holdMs = 1700;
+      const spread = 2.05;
 
       const ambient = new THREE.HemisphereLight(0xf7f4ec, 0x242822, 2.4);
       scene.add(ambient);
@@ -1912,14 +2027,14 @@ for p in plan.placements:
       scene.add(key);
 
       const floor = new THREE.Mesh(
-        new THREE.PlaneGeometry(16, 16),
+        new THREE.PlaneGeometry(28, 28),
         new THREE.MeshStandardMaterial({ color: 0x242822, roughness: 0.92, metalness: 0.05 })
       );
       floor.rotation.x = -Math.PI / 2;
       floor.position.y = -0.02;
       scene.add(floor);
 
-      const grid = new THREE.GridHelper(16, 16, 0x74a66f, 0x4b5349);
+      const grid = new THREE.GridHelper(28, 28, 0x74a66f, 0x4b5349);
       grid.position.y = 0.002;
       scene.add(grid);
 
@@ -1939,12 +2054,26 @@ for p in plan.placements:
 
       const moduleGroup = new THREE.Group();
       scene.add(moduleGroup);
+      const personGroup = new THREE.Group();
+      const body = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.16, 0.52, 5, 12),
+        new THREE.MeshStandardMaterial({ color: 0x46514a, roughness: 0.7 })
+      );
+      body.position.y = 0.46;
+      personGroup.add(body);
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.17, 18, 14),
+        new THREE.MeshStandardMaterial({ color: 0xd6b796, roughness: 0.62 })
+      );
+      head.position.y = 0.93;
+      personGroup.add(head);
+      scene.add(personGroup);
+
       const target3dLabel = document.getElementById('target3dLabel');
       const colors = [0xf4f1e9, 0xdde5df, 0xe7d7bc, 0xdce4e5, 0xf2e4b6, 0xd7d5cb, 0xe7efe4, 0xd8d0c2];
-      let dimensions = null;
+      let plan = null;
       let modules = [];
       let cycleStart = performance.now();
-      let perModuleMs = 90;
 
       function easeInOut(t) {
         return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
@@ -1957,8 +2086,57 @@ for p in plan.placements:
             length: Math.floor(Math.random() * 10) + 1,
             width: Math.floor(Math.random() * 10) + 1,
           };
-        } while (previous && next.length === previous.length && next.width === previous.width);
+        } while (
+          next.length * next.width < 6 ||
+          (previous && next.length === previous.length && next.width === previous.width)
+        );
         return next;
+      }
+
+      function splitRect(rect, out, depth = 0) {
+        const area = rect.w * rect.h;
+        if (area <= 3 || (area <= 9 && depth > 1 && Math.random() < 0.34) || out.length > 13) {
+          out.push(rect);
+          return;
+        }
+
+        const canSplitW = rect.w > 1;
+        const canSplitH = rect.h > 1;
+        if (!canSplitW && !canSplitH) {
+          out.push(rect);
+          return;
+        }
+
+        const splitVertical = canSplitW && (!canSplitH || rect.w >= rect.h ? Math.random() > 0.25 : Math.random() > 0.58);
+        if (splitVertical) {
+          const cut = Math.floor(Math.random() * (rect.w - 1)) + 1;
+          splitRect({ x: rect.x, y: rect.y, w: cut, h: rect.h }, out, depth + 1);
+          splitRect({ x: rect.x + cut, y: rect.y, w: rect.w - cut, h: rect.h }, out, depth + 1);
+        } else {
+          const cut = Math.floor(Math.random() * (rect.h - 1)) + 1;
+          splitRect({ x: rect.x, y: rect.y, w: rect.w, h: cut }, out, depth + 1);
+          splitRect({ x: rect.x, y: rect.y + cut, w: rect.w, h: rect.h - cut }, out, depth + 1);
+        }
+      }
+
+      function buildPlan(nextDimensions) {
+        const rectangles = [];
+        splitRect({ x: 0, y: 0, w: nextDimensions.length, h: nextDimensions.width }, rectangles);
+        rectangles.sort((a, b) => (a.y - b.y) || (a.x - b.x) || (b.w * b.h - a.w * a.h));
+        const modulesForPlan = rectangles.map((rect, index) => {
+          const final = new THREE.Vector3(
+            centerX + rect.x + rect.w / 2 - nextDimensions.length / 2,
+            0.36,
+            rect.y + rect.h / 2 - nextDimensions.width / 2
+          );
+          const start = new THREE.Vector3(
+            centerX + (final.x - centerX) * spread,
+            0.36,
+            final.z * spread
+          );
+          return { ...rect, index, final, start };
+        });
+        return { dimensions: nextDimensions, modules: modulesForPlan };
       }
 
       function disposeObject(object) {
@@ -1977,24 +2155,26 @@ for p in plan.placements:
 
       function updateTargetGeometry() {
         target.geometry.dispose();
-        target.geometry = new THREE.BoxGeometry(dimensions.length + 0.02, 0.035, dimensions.width + 0.02);
+        target.geometry = new THREE.BoxGeometry(plan.dimensions.length + 0.02, 0.035, plan.dimensions.width + 0.02);
         edge.geometry.dispose();
-        edge.geometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(dimensions.length + 0.02, 0.04, dimensions.width + 0.02));
+        const edgeBox = new THREE.BoxGeometry(plan.dimensions.length + 0.02, 0.04, plan.dimensions.width + 0.02);
+        edge.geometry = new THREE.EdgesGeometry(edgeBox);
+        edgeBox.dispose();
       }
 
-      function makeModule(index, finalPosition, startPosition) {
+      function makeModule(module) {
         const mesh = new THREE.Mesh(
-          new THREE.BoxGeometry(1, 0.72, 1),
-          new THREE.MeshStandardMaterial({ color: colors[index], roughness: 0.72, metalness: 0.04 })
+          new THREE.BoxGeometry(module.w, 0.72, module.h),
+          new THREE.MeshStandardMaterial({ color: colors[module.index % colors.length], roughness: 0.72, metalness: 0.04 })
         );
-        mesh.position.copy(startPosition);
-        mesh.visible = false;
-        mesh.userData.start = startPosition;
-        mesh.userData.goal = finalPosition;
+        mesh.position.copy(module.start);
+        mesh.visible = true;
+        mesh.userData.start = module.start;
+        mesh.userData.goal = module.final;
         moduleGroup.add(mesh);
 
         const outline = new THREE.LineSegments(
-          new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 0.725, 1.002)),
+          new THREE.EdgesGeometry(new THREE.BoxGeometry(module.w + 0.002, 0.725, module.h + 0.002)),
           new THREE.LineBasicMaterial({ color: 0x151815, transparent: true, opacity: 0.25 })
         );
         mesh.add(outline);
@@ -2002,27 +2182,18 @@ for p in plan.placements:
       }
 
       function buildCycle(time) {
-        dimensions = randomDimensions(dimensions);
+        plan = buildPlan(randomDimensions(plan && plan.dimensions));
         clearModules();
         updateTargetGeometry();
 
-        const frontZ = (dimensions.width - 1) / 2;
-        let index = 0;
-        for (let row = 0; row < dimensions.width; row += 1) {
-          for (let col = 0; col < dimensions.length; col += 1) {
-            const x = centerX + col - (dimensions.length - 1) / 2;
-            const z = row - (dimensions.width - 1) / 2;
-            const goal = new THREE.Vector3(x, 0.36, z);
-            const start = new THREE.Vector3(x, 0.36, frontZ + 1.65);
-            modules.push(makeModule(index % colors.length, goal, start));
-            index += 1;
-          }
+        for (const module of plan.modules) {
+          modules.push(makeModule(module));
         }
 
-        perModuleMs = Math.max(46, Math.min(180, 5400 / Math.max(1, modules.length)));
+        personGroup.position.set(centerX, 0, plan.dimensions.width / 2 + 2.25);
         cycleStart = time;
         if (target3dLabel) {
-          target3dLabel.textContent = `Current target: ${dimensions.length}m x ${dimensions.width}m, ${modules.length} exact 1m modules`;
+          target3dLabel.textContent = `Command: ${plan.dimensions.length}m x ${plan.dimensions.width}m ahead | ${modules.length} varied cabinets | plan proposed`;
         }
       }
 
@@ -2033,40 +2204,38 @@ for p in plan.placements:
         renderer.setSize(width, height, false);
         camera.aspect = width / height;
         camera.fov = width < 700 ? 58 : 42;
-        const span = dimensions ? Math.max(dimensions.length, dimensions.width, 4) : 4;
-        camera.position.set(centerX + span * 0.72, 2.8 + span * 0.28, span * 0.92 + 2.6);
+        const span = plan ? Math.max(plan.dimensions.length, plan.dimensions.width, 4) : 4;
+        camera.position.set(centerX + span * 0.9, 3.6 + span * 0.34, span * 1.08 + 4.8);
         camera.lookAt(centerX, 0.36, 0);
         camera.updateProjectionMatrix();
       }
 
       function animate3d(time) {
-        if (!dimensions) buildCycle(time);
+        if (!plan) buildCycle(time);
         resize3d();
-        const assemblyMs = modules.length * perModuleMs;
-        const holdMs = 1250;
+        const totalMs = commandMs + planMs + moveMs + holdMs;
         let elapsed = time - cycleStart;
-        if (elapsed > assemblyMs + holdMs) {
+        if (elapsed > totalMs) {
           buildCycle(time);
           elapsed = 0;
         }
 
-        const activeIndex = Math.min(modules.length, Math.floor(elapsed / perModuleMs));
-        const activeT = activeIndex < modules.length ? easeInOut((elapsed - activeIndex * perModuleMs) / perModuleMs) : 1;
+        const rawMoveProgress = (elapsed - commandMs - planMs) / moveMs;
+        const moveProgress = easeInOut(Math.max(0, Math.min(1, rawMoveProgress)));
+        const phaseLabel = elapsed < commandMs ? 'human command' : elapsed < commandMs + planMs ? 'plan proposed' : moveProgress < 1 ? 'parallel move' : 'flush lock';
         modules.forEach((mesh, index) => {
-          if (index < activeIndex) {
-            mesh.visible = true;
-            mesh.position.copy(mesh.userData.goal);
-            mesh.rotation.y = 0;
-          } else if (index === activeIndex) {
-            mesh.visible = true;
-            mesh.position.lerpVectors(mesh.userData.start, mesh.userData.goal, activeT);
-            mesh.rotation.y = 0;
-          } else {
-            mesh.visible = false;
-          }
+          mesh.visible = true;
+          mesh.position.lerpVectors(mesh.userData.start, mesh.userData.goal, moveProgress);
+          mesh.rotation.y = 0;
+          mesh.material.emissive = new THREE.Color(moveProgress > 0.98 ? 0x12391e : 0x000000);
+          mesh.material.emissiveIntensity = moveProgress > 0.98 ? 0.08 : 0;
         });
 
-        target.material.opacity = activeIndex >= modules.length ? 0.36 : 0.22 + 0.12 * activeT;
+        if (target3dLabel) {
+          target3dLabel.textContent = `Command: ${plan.dimensions.length}m x ${plan.dimensions.width}m ahead | ${modules.length} varied cabinets | ${phaseLabel}`;
+        }
+
+        target.material.opacity = moveProgress >= 1 ? 0.38 : 0.2 + 0.14 * moveProgress;
         scene.rotation.y = 0.12 * Math.sin(time * 0.00025);
         renderer.render(scene, camera);
         requestAnimationFrame(animate3d);
