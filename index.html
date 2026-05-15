@@ -734,6 +734,231 @@
       line-height: 1.5;
     }
 
+    .plain-demo {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .plain-step {
+      min-height: 124px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 250, .82);
+    }
+
+    .plain-step strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--green);
+      font-size: 15px;
+      text-transform: uppercase;
+    }
+
+    .plain-step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.48;
+    }
+
+    .planner-card {
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .planner-card .request-line {
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--green);
+      background: #fffdfa;
+      color: var(--graphite);
+      font-size: 18px;
+      font-weight: 720;
+    }
+
+    .planner-card ol {
+      margin: 0;
+      padding-left: 22px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .anim2d-wrap {
+      position: relative;
+      min-height: 540px;
+      overflow: hidden;
+      border-radius: var(--radius);
+      background:
+        linear-gradient(90deg, rgba(21, 24, 21, .06) 1px, transparent 1px) 0 0 / 42px 42px,
+        linear-gradient(180deg, rgba(21, 24, 21, .05) 1px, transparent 1px) 0 0 / 42px 42px,
+        #ece8dd;
+      box-shadow: var(--shadow);
+    }
+
+    .target-table {
+      position: absolute;
+      left: 52%;
+      top: 50%;
+      width: 300px;
+      height: 200px;
+      border: 2px dashed rgba(30, 107, 74, .8);
+      border-radius: 6px;
+      transform: translate(-50%, -50%);
+      background: rgba(30, 107, 74, .05);
+    }
+
+    .target-table::before {
+      content: "Target 2m x 3m";
+      position: absolute;
+      left: 12px;
+      top: -30px;
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 780;
+    }
+
+    .module2d {
+      position: absolute;
+      width: 96px;
+      height: 64px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(21, 24, 21, .22);
+      border-radius: 6px;
+      background: linear-gradient(180deg, #fffef8, #d8ded8);
+      color: var(--graphite);
+      font-size: 13px;
+      font-weight: 760;
+      box-shadow: 0 12px 24px rgba(21, 24, 21, .14);
+      animation: assemble2d 8s ease-in-out infinite;
+    }
+
+    .module2d:nth-child(2) { --sx: 34px; --sy: 88px; --tx: calc(52% - 150px); --ty: calc(50% - 100px); animation-delay: 0s; }
+    .module2d:nth-child(3) { --sx: 84px; --sy: 292px; --tx: calc(52% - 50px); --ty: calc(50% - 100px); animation-delay: .16s; }
+    .module2d:nth-child(4) { --sx: 152px; --sy: 420px; --tx: calc(52% + 50px); --ty: calc(50% - 100px); animation-delay: .32s; }
+    .module2d:nth-child(5) { --sx: 540px; --sy: 72px; --tx: calc(52% - 150px); --ty: 50%; animation-delay: .48s; }
+    .module2d:nth-child(6) { --sx: 590px; --sy: 306px; --tx: calc(52% - 50px); --ty: 50%; animation-delay: .64s; }
+    .module2d:nth-child(7) { --sx: 458px; --sy: 428px; --tx: calc(52% + 50px); --ty: 50%; animation-delay: .8s; }
+
+    @keyframes assemble2d {
+      0%, 18% {
+        left: var(--sx);
+        top: var(--sy);
+        transform: scale(.92);
+      }
+      48%, 78% {
+        left: var(--tx);
+        top: var(--ty);
+        transform: scale(1);
+      }
+      100% {
+        left: var(--sx);
+        top: var(--sy);
+        transform: scale(.92);
+      }
+    }
+
+    .anim-legend {
+      position: absolute;
+      left: 24px;
+      bottom: 22px;
+      max-width: 360px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.48;
+    }
+
+    .anim-legend strong {
+      color: var(--green);
+    }
+
+    .three-slide {
+      padding: 0;
+      overflow: hidden;
+      background: #11150f;
+    }
+
+    .three-stage {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.06), transparent 32%),
+        radial-gradient(circle at 72% 28%, rgba(116,166,111,.18), transparent 32%),
+        #11150f;
+    }
+
+    .three-stage canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .three-overlay {
+      position: relative;
+      z-index: 2;
+      max-width: 560px;
+      margin: 52px;
+      color: #f7f4ec;
+      text-shadow: 0 8px 24px rgba(0,0,0,.35);
+    }
+
+    .three-overlay .kicker {
+      color: #9ed09c;
+    }
+
+    .three-overlay h2 {
+      color: #fffdf7;
+    }
+
+    .three-overlay .lead {
+      color: rgba(247, 244, 236, .78);
+    }
+
+    .code-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
+      margin-top: 22px;
+    }
+
+    .code-panel {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #141812;
+      box-shadow: var(--shadow);
+    }
+
+    .code-panel header {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+      color: #b8d8b6;
+      font-size: 13px;
+      font-weight: 760;
+    }
+
+    pre {
+      margin: 0;
+      padding: 14px;
+      overflow: auto;
+      color: #f4f1e9;
+      font-size: 13px;
+      line-height: 1.52;
+      white-space: pre-wrap;
+    }
+
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
     .source-line {
       margin-top: 20px;
       color: var(--muted);
@@ -786,8 +1011,14 @@
       .node-grid,
       .metric-grid,
       .ask-grid,
-      .roadmap {
+      .roadmap,
+      .plain-demo,
+      .code-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .anim2d-wrap {
+        min-height: 500px;
       }
     }
 
@@ -837,8 +1068,43 @@
       .node-grid,
       .metric-grid,
       .ask-grid,
-      .roadmap {
+      .roadmap,
+      .plain-demo,
+      .code-grid {
         grid-template-columns: minmax(0, 1fr);
+      }
+
+      .plain-step,
+      .planner-card {
+        padding: 15px;
+      }
+
+      .anim2d-wrap {
+        min-height: 430px;
+      }
+
+      .target-table {
+        left: 50%;
+        width: 234px;
+        height: 156px;
+      }
+
+      .module2d {
+        width: 74px;
+        height: 50px;
+        font-size: 12px;
+      }
+
+      .module2d:nth-child(2) { --sx: 18px; --sy: 82px; --tx: calc(50% - 117px); --ty: calc(50% - 78px); }
+      .module2d:nth-child(3) { --sx: 34px; --sy: 274px; --tx: calc(50% - 39px); --ty: calc(50% - 78px); }
+      .module2d:nth-child(4) { --sx: 104px; --sy: 354px; --tx: calc(50% + 39px); --ty: calc(50% - 78px); }
+      .module2d:nth-child(5) { --sx: 236px; --sy: 78px; --tx: calc(50% - 117px); --ty: 50%; }
+      .module2d:nth-child(6) { --sx: 248px; --sy: 266px; --tx: calc(50% - 39px); --ty: 50%; }
+      .module2d:nth-child(7) { --sx: 212px; --sy: 350px; --tx: calc(50% + 39px); --ty: 50%; }
+
+      .three-overlay {
+        max-width: 340px;
+        margin: 26px 22px;
       }
 
       .toolbar {
@@ -1003,8 +1269,33 @@
       .card,
       .metric,
       .ask,
-      .gate {
+      .gate,
+      .planner-card,
+      .plain-step,
+      .code-panel {
         box-shadow: none;
+      }
+
+      .three-slide {
+        background: #fff;
+      }
+
+      .three-stage {
+        position: relative;
+        min-height: 520px;
+      }
+
+      .three-overlay {
+        color: var(--ink);
+        text-shadow: none;
+      }
+
+      .three-overlay h2 {
+        color: var(--ink);
+      }
+
+      .three-overlay .lead {
+        color: var(--muted);
       }
     }
   </style>
@@ -1254,6 +1545,107 @@
       </aside>
     </section>
 
+    <section class="slide" data-notes="Explain the second-type robot table-composition planner in plain language for friends without a computer background.">
+      <main>
+        <p class="print-title">Planner explanation</p>
+        <p class="kicker">Type-2 Robot Planner</p>
+        <h2>When you ask for a 2m x 3m table, the room chooses the best cabinet combination.</h2>
+        <p class="lead">你不需要知道算法。你只说“我要一张 2 米 x 3 米的桌面”，系统会挑选最合适的长方形柜式机器人，决定它们的位置、排列和方向。</p>
+        <div class="plain-demo">
+          <article class="plain-step"><strong>中文解释</strong><p>第二类机器人像带平顶的移动柜子。系统把它们当成长方形积木，先拼出桌面，再交给运动规划层去安全移动。</p></article>
+          <article class="plain-step"><strong>Plain English</strong><p>Each robot is a rectangular cabinet with a flat top. The planner chooses a set of cabinets and arranges them like table tiles.</p></article>
+          <article class="plain-step"><strong>安全边界</strong><p>本页只解决最终布局，不让机器人硬挤过去。移动路径、避障、急停和空间锁由下一层处理。</p></article>
+          <article class="plain-step"><strong>Why Rush Hour matters</strong><p>Rush Hour shows that moving many rectangles can become very hard. So we split “where should they end up” from “how should they move there”.</p></article>
+        </div>
+      </main>
+      <aside class="visual">
+        <div class="planner-card">
+          <div class="request-line">User: “I need a 2m x 3m tabletop.”</div>
+          <ol>
+            <li>Filter robots that are flat, available, and same height.</li>
+            <li>Try rectangle combinations with 0° / 90° rotation.</li>
+            <li>Reject overlap, large gaps, and unsafe overhang.</li>
+            <li>Score fewer robots, shorter seams, and less movement.</li>
+            <li>Return final pose for every selected robot.</li>
+          </ol>
+        </div>
+      </aside>
+    </section>
+
+    <section class="slide full" data-notes="2D animation: show non-technical viewers that the planner is selecting and arranging rectangular tops into one target table.">
+      <main>
+        <p class="print-title">2D tabletop assembly</p>
+        <p class="kicker">2D Demo Animation</p>
+        <h2>Six cabinet robots become one 2m x 3m tabletop.</h2>
+        <p class="lead">动画里的每个小矩形就是一个第二类机器人顶部。绿色虚线是目标桌面，系统把模块排成最接近目标尺寸的平面。</p>
+        <div class="anim2d-wrap" aria-label="2D animation of six rectangular robot modules assembling into a table">
+          <div class="target-table"></div>
+          <div class="module2d">R1</div>
+          <div class="module2d">R2</div>
+          <div class="module2d">R3</div>
+          <div class="module2d">R4</div>
+          <div class="module2d">R5</div>
+          <div class="module2d">R6</div>
+          <p class="anim-legend"><strong>Simple idea:</strong> choose rectangles, rotate if needed, fill the target, avoid big gaps.</p>
+        </div>
+      </main>
+    </section>
+
+    <section class="slide full three-slide" data-notes="3D animation: the boxes are cabinet robots; the green translucent plane is the requested tabletop. This is intentionally visual, not technical.">
+      <div class="three-stage" aria-label="3D animation of cabinet robots forming a tabletop">
+        <canvas id="table3dCanvas"></canvas>
+      </div>
+      <main class="three-overlay">
+        <p class="print-title">3D tabletop assembly</p>
+        <p class="kicker">3D Demo Animation</p>
+        <h2>Cabinet robots align into a shared flat surface.</h2>
+        <p class="lead">The translucent green plane is the requested table. The moving boxes are rectangular cabinet robots. They settle into a stable grid before any real motion planner is allowed to move hardware.</p>
+      </main>
+    </section>
+
+    <section class="slide full" data-notes="Show enough pseudocode and Python to prove the idea is implementable, but keep the explanation approachable.">
+      <main>
+        <p class="print-title">Planner pseudocode and code</p>
+        <p class="kicker">Pseudocode + Reference Code</p>
+        <h2>The planner is a bounded search, not magic.</h2>
+        <p class="lead">伪代码给设计师和机器人团队读；Python 参考实现已经在仓库中，包含 exact fit、mixed fit、duplicate、tolerance、infeasible 和 determinism 测试。</p>
+        <div class="code-grid">
+          <section class="code-panel">
+            <header>伪代码 / Pseudocode</header>
+            <pre><code>PLAN_TABLE_COMPOSITION(request, robots):
+  candidates = flat + available + same height
+  queue = [empty layout]
+  while time remains:
+    partial = best unfinished layout
+    if target is covered:
+      score and keep best plan
+    anchor = first uncovered point
+    for each robot rectangle:
+      try 0° and 90° rotation
+      reject overlap, big gap, unsafe overhang
+      push improved layout
+  return best feasible plan or NO_SOLUTION</code></pre>
+          </section>
+          <section class="code-panel">
+            <header>Python reference</header>
+            <pre><code>plan = plan_table_composition(
+  TableRequest(3.0, 2.0, tolerance_m=0.02),
+  robots
+)
+
+for p in plan.placements:
+  send_goal(
+    robot_id=p.robot_id,
+    center=(p.center_x, p.center_y),
+    yaw=p.yaw,
+    rectangle=(p.rect_length, p.rect_width)
+  )</code></pre>
+          </section>
+        </div>
+        <p class="source-line">Repo files: <code>docs/type2_table_composition_pseudocode.md</code>, <code>src/table_composition_planner.py</code>, <code>tests/test_table_composition_planner.py</code>.</p>
+      </main>
+    </section>
+
     <section class="slide full" data-notes="Milestones must be concrete and dated. The audience should feel that the team knows where to stop.">
       <main>
         <p class="print-title">Slide 12</p>
@@ -1376,6 +1768,119 @@
       setSlide(hashIndex - 1);
     } else {
       setSlide(0);
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.165.0/build/three.module.js';
+
+    const canvas = document.getElementById('table3dCanvas');
+    if (canvas) {
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+      camera.position.set(4.8, 3.4, 6.4);
+      camera.lookAt(1.05, 0.4, 0);
+
+      const ambient = new THREE.HemisphereLight(0xf7f4ec, 0x242822, 2.4);
+      scene.add(ambient);
+      const key = new THREE.DirectionalLight(0xffffff, 2.2);
+      key.position.set(4, 7, 3);
+      scene.add(key);
+
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(7, 5),
+        new THREE.MeshStandardMaterial({ color: 0x242822, roughness: 0.92, metalness: 0.05 })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -0.02;
+      scene.add(floor);
+
+      const grid = new THREE.GridHelper(7, 14, 0x74a66f, 0x4b5349);
+      grid.position.y = 0.002;
+      scene.add(grid);
+
+      const target = new THREE.Mesh(
+        new THREE.BoxGeometry(3.02, 0.035, 2.02),
+        new THREE.MeshStandardMaterial({ color: 0x74a66f, transparent: true, opacity: 0.32, roughness: 0.55 })
+      );
+      target.position.set(1.05, 0.76, 0);
+      scene.add(target);
+
+      const edge = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(3.02, 0.04, 2.02)),
+        new THREE.LineBasicMaterial({ color: 0x9ed09c, transparent: true, opacity: 0.9 })
+      );
+      edge.position.copy(target.position);
+      scene.add(edge);
+
+      const starts = [
+        [-1.9, 0.36, -1.8],
+        [-1.5, 0.36, 1.6],
+        [0.3, 0.36, 2.0],
+        [3.5, 0.36, -1.9],
+        [4.1, 0.36, .2],
+        [3.3, 0.36, 1.7],
+      ];
+      const goals = [
+        [0.05, 0.36, -0.5],
+        [1.05, 0.36, -0.5],
+        [2.05, 0.36, -0.5],
+        [0.05, 0.36, 0.5],
+        [1.05, 0.36, 0.5],
+        [2.05, 0.36, 0.5],
+      ];
+      const colors = [0xf4f1e9, 0xdde5df, 0xe7d7bc, 0xdce4e5, 0xf2e4b6, 0xd7d5cb];
+      const modules = starts.map((start, index) => {
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(0.94, 0.72, 0.94),
+          new THREE.MeshStandardMaterial({ color: colors[index], roughness: 0.72, metalness: 0.04 })
+        );
+        mesh.position.set(...start);
+        mesh.userData.start = new THREE.Vector3(...start);
+        mesh.userData.goal = new THREE.Vector3(...goals[index]);
+        scene.add(mesh);
+
+        const outline = new THREE.LineSegments(
+          new THREE.EdgesGeometry(new THREE.BoxGeometry(0.95, 0.725, 0.95)),
+          new THREE.LineBasicMaterial({ color: 0x151815, transparent: true, opacity: 0.25 })
+        );
+        mesh.add(outline);
+        return mesh;
+      });
+
+      function easeInOut(t) {
+        return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      }
+
+      function resize3d() {
+        const rect = canvas.getBoundingClientRect();
+        const width = Math.max(1, rect.width);
+        const height = Math.max(1, rect.height);
+        renderer.setSize(width, height, false);
+        camera.aspect = width / height;
+        camera.fov = width < 700 ? 58 : 42;
+        camera.updateProjectionMatrix();
+      }
+
+      function animate3d(time) {
+        resize3d();
+        const cycle = (time * 0.00012) % 1;
+        const assemble = cycle < 0.5 ? easeInOut(cycle / 0.5) : easeInOut((1 - cycle) / 0.5);
+        modules.forEach((mesh, index) => {
+          const delayed = Math.max(0, Math.min(1, assemble * 1.18 - index * 0.035));
+          mesh.position.lerpVectors(mesh.userData.start, mesh.userData.goal, delayed);
+          mesh.rotation.y = 0.08 * Math.sin(time * 0.001 + index);
+        });
+        target.material.opacity = 0.22 + 0.12 * assemble;
+        scene.rotation.y = 0.12 * Math.sin(time * 0.00025);
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate3d);
+      }
+
+      resize3d();
+      requestAnimationFrame(animate3d);
     }
   </script>
 </body>
