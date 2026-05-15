@@ -790,19 +790,134 @@
       line-height: 1.7;
     }
 
-    .anim2d-wrap {
+    .transform-slide {
+      align-items: stretch;
+    }
+
+    .transform-demo {
+      display: grid;
+      grid-template-columns: minmax(320px, .72fr) minmax(0, 1.28fr);
+      gap: 18px;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .transform-copy {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .transform-copy .lead {
+      margin-bottom: 0;
+    }
+
+    .mechanism-tag {
+      display: inline-flex;
+      width: fit-content;
+      min-height: 30px;
+      align-items: center;
+      padding: 6px 9px;
+      border: 1px solid rgba(30, 107, 74, .2);
+      border-radius: 6px;
+      background: rgba(30, 107, 74, .08);
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 760;
+      text-transform: uppercase;
+    }
+
+    .transform-controls {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 250, .86);
+    }
+
+    .transform-field {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .transform-field input {
+      width: 100%;
+      min-height: 36px;
+      padding: 7px 9px;
+      border: 1px solid rgba(21, 24, 21, .18);
+      border-radius: 6px;
+      background: #fffdfa;
+      color: var(--graphite);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 740;
+    }
+
+    .transform-button {
+      min-height: 36px;
+      border: 1px solid rgba(21, 24, 21, .16);
+      border-radius: 6px;
+      background: #fffdfa;
+      color: var(--graphite);
+      font-size: 13px;
+      font-weight: 780;
+      cursor: pointer;
+    }
+
+    .transform-button.primary {
+      border-color: rgba(30, 107, 74, .42);
+      background: var(--green);
+      color: #fffdf7;
+    }
+
+    .transform-status {
+      grid-column: 1 / -1;
+      min-height: 34px;
+      padding: 7px 9px;
+      border-radius: 6px;
+      background: rgba(21, 24, 21, .06);
+      color: var(--graphite);
+      font-size: 12px;
+      font-weight: 760;
+      line-height: 1.35;
+    }
+
+    .transform-stage-grid {
+      display: grid;
+      grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
+      gap: 12px;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .transform-view {
       position: relative;
-      min-height: 540px;
       overflow: hidden;
+      min-height: 520px;
+      border: 1px solid rgba(21, 24, 21, .12);
       border-radius: var(--radius);
       background:
-        linear-gradient(90deg, rgba(21, 24, 21, .06) 1px, transparent 1px) 0 0 / 42px 42px,
-        linear-gradient(180deg, rgba(21, 24, 21, .05) 1px, transparent 1px) 0 0 / 42px 42px,
+        linear-gradient(90deg, rgba(21, 24, 21, .055) 1px, transparent 1px) 0 0 / 36px 36px,
+        linear-gradient(180deg, rgba(21, 24, 21, .045) 1px, transparent 1px) 0 0 / 36px 36px,
         #ece8dd;
       box-shadow: var(--shadow);
     }
 
-    .anim2d-canvas {
+    .transform-view.dark {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.06), transparent 34%),
+        radial-gradient(circle at 76% 24%, rgba(116,166,111,.16), transparent 34%),
+        #121711;
+    }
+
+    .transform-view canvas {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -810,100 +925,23 @@
       display: block;
     }
 
-    .demo-status {
+    .view-label {
       position: absolute;
-      left: 24px;
-      top: 22px;
+      left: 12px;
+      top: 10px;
       z-index: 2;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      max-width: calc(100% - 48px);
-    }
-
-    .demo-pill {
-      min-height: 32px;
-      padding: 7px 10px;
-      border: 1px solid rgba(21, 24, 21, .14);
+      min-height: 27px;
+      padding: 5px 8px;
       border-radius: 6px;
       background: rgba(255, 253, 250, .9);
       color: var(--graphite);
-      font-size: 13px;
-      font-weight: 760;
+      font-size: 12px;
+      font-weight: 780;
     }
 
-    .demo-pill:not(#target2dLabel) {
-      display: none;
-    }
-
-    .anim-legend {
-      position: absolute;
-      left: 24px;
-      bottom: 22px;
-      max-width: 360px;
-      color: var(--muted);
-      font-size: 14px;
-      line-height: 1.48;
-    }
-
-    .anim-legend strong {
-      color: var(--green);
-    }
-
-    .three-slide {
-      padding: 0;
-      overflow: hidden;
-      background: #11150f;
-    }
-
-    .three-stage {
-      position: absolute;
-      inset: 0;
-      background:
-        linear-gradient(180deg, rgba(255,255,255,.06), transparent 32%),
-        radial-gradient(circle at 72% 28%, rgba(116,166,111,.18), transparent 32%),
-        #11150f;
-    }
-
-    .three-stage canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-
-    .three-overlay {
-      position: relative;
-      z-index: 2;
-      max-width: 560px;
-      margin: 52px;
-      color: #f7f4ec;
-      text-shadow: 0 8px 24px rgba(0,0,0,.35);
-    }
-
-    .three-overlay .kicker {
-      color: #9ed09c;
-    }
-
-    .three-overlay h2 {
-      color: #fffdf7;
-    }
-
-    .three-overlay .lead {
-      color: rgba(247, 244, 236, .78);
-    }
-
-    .three-status {
-      display: inline-flex;
-      align-items: center;
-      min-height: 32px;
-      margin-top: 10px;
-      padding: 7px 10px;
-      border: 1px solid rgba(255, 255, 255, .2);
-      border-radius: 6px;
-      background: rgba(17, 21, 15, .48);
+    .transform-view.dark .view-label {
+      background: rgba(17, 21, 15, .58);
       color: #dcebd7;
-      font-size: 13px;
-      font-weight: 760;
     }
 
     .code-grid {
@@ -1002,13 +1040,12 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .anim2d-wrap {
-        min-height: 500px;
+      .transform-demo {
+        grid-template-columns: minmax(0, 1fr);
       }
 
-      .demo-pill:not(#target2dLabel),
-      .anim-legend {
-        display: none;
+      .transform-stage-grid {
+        min-height: 560px;
       }
     }
 
@@ -1069,30 +1106,18 @@
         padding: 15px;
       }
 
-      .anim2d-wrap {
-        min-height: 430px;
+      .transform-demo,
+      .transform-stage-grid,
+      .transform-controls {
+        grid-template-columns: minmax(0, 1fr);
       }
 
-      .demo-status {
-        left: 14px;
-        top: 14px;
-        right: 14px;
-        max-width: none;
+      .transform-stage-grid {
+        min-height: 540px;
       }
 
-      .demo-pill:not(#target2dLabel),
-      .anim-legend {
-        display: none;
-      }
-
-      #target2dLabel {
-        max-width: 100%;
-        line-height: 1.25;
-      }
-
-      .three-overlay {
-        max-width: 340px;
-        margin: 26px 22px;
+      .transform-copy {
+        gap: 10px;
       }
 
       .toolbar {
@@ -1264,26 +1289,9 @@
         box-shadow: none;
       }
 
-      .three-slide {
-        background: #fff;
-      }
-
-      .three-stage {
-        position: relative;
-        min-height: 520px;
-      }
-
-      .three-overlay {
-        color: var(--ink);
-        text-shadow: none;
-      }
-
-      .three-overlay h2 {
-        color: var(--ink);
-      }
-
-      .three-overlay .lead {
-        color: var(--muted);
+      .transform-view {
+        min-height: 360px;
+        box-shadow: none;
       }
     }
   </style>
@@ -1537,60 +1545,218 @@
       <main>
         <p class="print-title">Planner explanation</p>
         <p class="kicker">Type-2 Robot Planner</p>
-        <h2>When you ask for any 1-10m rectangular table, the room chooses the best cabinet combination.</h2>
-        <p class="lead">你不需要知道算法。你只说“我要一张 N 米 x M 米的桌面”，系统会挑选最合适的长方形柜式机器人，决定它们的位置、排列和方向。</p>
+        <h2>When you ask for a table, nine identical cabinets become the surface.</h2>
+        <p class="lead">你不需要知道算法。你只说“我要一张多大的桌面”，系统让 9 个 60cm x 60cm x 50cm 柜子移动、升降或展开桌面机构，决定它们的位置、排列和变形方式。</p>
         <div class="plain-demo">
-          <article class="plain-step"><strong>中文解释</strong><p>第二类机器人像带平顶的移动柜子。系统把它们当成长方形积木，先拼出桌面，再交给运动规划层去安全移动。</p></article>
-          <article class="plain-step"><strong>Plain English</strong><p>Each robot is a rectangular cabinet with a flat top. The planner chooses a set of cabinets and arranges them like table tiles.</p></article>
+          <article class="plain-step"><strong>中文解释</strong><p>第二类机器人像带可变形桌面的移动柜子。底座永远是 60cm 方形，桌面通过滑移、翻折、升降、折纸翼片等方式变大。</p></article>
+          <article class="plain-step"><strong>Plain English</strong><p>Each robot keeps the same cabinet body. The tabletop changes by mechanism, while SpatialOS coordinates the 9-node layout.</p></article>
           <article class="plain-step"><strong>安全边界</strong><p>本页展示同步移动概念：每个柜子拿到自己的预约通道，真实硬件仍由运动规划、避障、急停和空间锁保护。</p></article>
           <article class="plain-step"><strong>Why Rush Hour matters</strong><p>Rush Hour shows that moving many rectangles can become very hard. So we split “where should they end up” from “how should they move there”.</p></article>
         </div>
       </main>
       <aside class="visual">
         <div class="planner-card">
-          <div class="request-line">User: “I need a 1-10m by 1-10m tabletop.”</div>
+          <div class="request-line">User: “I need a 2.4m by 3.0m tabletop.”</div>
           <ol>
-            <li>Filter robots that are flat, available, and same height.</li>
-            <li>Try rectangle combinations with 0° / 90° rotation.</li>
-            <li>Reject overlap, collision lanes, large gaps, and unsafe overhang.</li>
-            <li>Score fewer robots, shorter seams, and less movement.</li>
-            <li>Return final pose for every selected robot.</li>
+            <li>Keep all 9 cabinet bases fixed at 60cm square.</li>
+            <li>Split the requested rectangle into a 3 x 3 surface grid.</li>
+            <li>Move from the previous locked state into the next layout.</li>
+            <li>Animate a mechanism-specific top transformation.</li>
+            <li>Reject overlapping base collision volumes.</li>
           </ol>
         </div>
       </aside>
     </section>
 
-    <section class="slide full" data-notes="2D animation: show non-technical viewers that the planner is selecting and arranging rectangular tops into one target table.">
-      <main>
-        <p class="print-title">2D tabletop assembly</p>
-        <p class="kicker">2D Demo Animation</p>
-        <h2>A person asks for a platform in front; varied cabinets move together.</h2>
-        <p class="lead">空间里有一个人发出指令：“在我前方生成一个长宽指定的平台。” 不同长宽的柜子先凌乱分布在房间各处；SpatialOS 给出拼合方案后，被选中的柜子同时移动去组成平台，多余柜子自动去墙边排列，路径绕开人的碰撞体积。</p>
-        <div class="anim2d-wrap" aria-label="2D animation of rectangular robot modules assembling into a random table size">
-          <canvas class="anim2d-canvas" id="table2dCanvas"></canvas>
-          <div class="demo-status">
-            <span class="demo-pill" id="target2dLabel">Command: --</span>
-            <span class="demo-pill">Parallel reserved lanes</span>
-            <span class="demo-pill">Varied cabinet sizes</span>
-            <span class="demo-pill">Human keep-out zone</span>
-            <span class="demo-pill">Collision volumes active</span>
-            <span class="demo-pill">Flush final platform</span>
+    <section class="slide full transform-slide" data-transform-mechanism="geometric" data-notes="Combined 2D and 3D animation for two-axis geometric sliding, based on Ozzio-style mechanisms.">
+      <main class="transform-demo">
+        <div class="transform-copy">
+          <p class="print-title">Two-axis geometric sliding</p>
+          <p class="kicker">Transform Mechanism 1 / 8</p>
+          <h2>Two-axis geometric sliding</h2>
+          <p class="lead">9 个相同柜体保持 60cm 底座；顶部板块沿几何滑轨向四周滑开，隐藏补板出现，形成新的长宽。</p>
+          <span class="mechanism-tag">Ozzio-style geometric sliding</span>
+          <div class="transform-controls" data-transform-controls>
+            <label class="transform-field">Length m<input data-length-input type="number" min="1.8" max="3.6" step="0.3" value="2.4"></label>
+            <label class="transform-field">Width m<input data-width-input type="number" min="1.8" max="3.6" step="0.3" value="2.4"></label>
+            <button class="transform-button primary" data-apply-command>Apply command</button>
+            <button class="transform-button" data-random-command>Random command</button>
+            <button class="transform-button" data-pause-toggle>Stop animation</button>
+            <div class="transform-status" data-transform-status>Booting 9 cabinets...</div>
           </div>
-          <p class="anim-legend"><strong>Simple idea:</strong> the room proposes a rectangle tiling, reserves a non-crossing path for every cabinet, then all selected cabinets converge at the same time.</p>
+        </div>
+        <div class="transform-stage-grid">
+          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
         </div>
       </main>
     </section>
 
-    <section class="slide full three-slide" data-notes="3D animation: the boxes are cabinet robots; the green translucent plane is the requested tabletop. This is intentionally visual, not technical.">
-      <div class="three-stage" aria-label="3D animation of cabinet robots forming a tabletop">
-        <canvas id="table3dCanvas"></canvas>
-      </div>
-      <main class="three-overlay">
-        <p class="print-title">3D tabletop assembly</p>
-        <p class="kicker">3D Demo Animation</p>
-        <h2>Room hears, plans, then cabinets move together.</h2>
-        <p class="lead">Different rectangular cabinet robots begin scattered around the room. SpatialOS assigns final footprints, sends surplus cabinets to the wall, and routes every lane around the human keep-out volume.</p>
-        <div class="three-status" id="target3dLabel">Command: --</div>
+    <section class="slide full transform-slide" data-transform-mechanism="butterfly" data-notes="Combined 2D and 3D animation for telescopic frame and butterfly leaves, based on Resource Plurimo-style mechanisms.">
+      <main class="transform-demo">
+        <div class="transform-copy">
+          <p class="print-title">Telescopic butterfly leaves</p>
+          <p class="kicker">Transform Mechanism 2 / 8</p>
+          <h2>Telescopic frame + butterfly leaves</h2>
+          <p class="lead">桌架像望远镜一样拉开，内藏 butterfly leaves 翻出补齐。柜体不变，桌面和支撑结构展开。</p>
+          <span class="mechanism-tag">Resource Plurimo reference</span>
+          <div class="transform-controls" data-transform-controls>
+            <label class="transform-field">Length m<input data-length-input type="number" min="1.8" max="3.6" step="0.3" value="2.7"></label>
+            <label class="transform-field">Width m<input data-width-input type="number" min="1.8" max="3.6" step="0.3" value="2.4"></label>
+            <button class="transform-button primary" data-apply-command>Apply command</button>
+            <button class="transform-button" data-random-command>Random command</button>
+            <button class="transform-button" data-pause-toggle>Stop animation</button>
+            <div class="transform-status" data-transform-status>Booting 9 cabinets...</div>
+          </div>
+        </div>
+        <div class="transform-stage-grid">
+          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
+        </div>
+      </main>
+    </section>
+
+    <section class="slide full transform-slide" data-transform-mechanism="book" data-notes="Combined 2D and 3D animation for book or flip-top tabletops.">
+      <main class="transform-demo">
+        <div class="transform-copy">
+          <p class="print-title">Book flip-top</p>
+          <p class="kicker">Transform Mechanism 3 / 8</p>
+          <h2>Book / flip-top tabletop</h2>
+          <p class="lead">桌面像书一样沿铰链翻开。它更适合单方向变大，但在 9 节点系统里可以组合成不同长宽的整体平台。</p>
+          <span class="mechanism-tag">Flip-top square-to-rectangle</span>
+          <div class="transform-controls" data-transform-controls>
+            <label class="transform-field">Length m<input data-length-input type="number" min="1.8" max="3.6" step="0.3" value="3.0"></label>
+            <label class="transform-field">Width m<input data-width-input type="number" min="1.8" max="3.6" step="0.3" value="2.1"></label>
+            <button class="transform-button primary" data-apply-command>Apply command</button>
+            <button class="transform-button" data-random-command>Random command</button>
+            <button class="transform-button" data-pause-toggle>Stop animation</button>
+            <div class="transform-status" data-transform-status>Booting 9 cabinets...</div>
+          </div>
+        </div>
+        <div class="transform-stage-grid">
+          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
+        </div>
+      </main>
+    </section>
+
+    <section class="slide full transform-slide" data-transform-mechanism="console" data-notes="Combined 2D and 3D animation for console fold-out mechanisms.">
+      <main class="transform-demo">
+        <div class="transform-copy">
+          <p class="print-title">Console fold-out</p>
+          <p class="kicker">Transform Mechanism 4 / 8</p>
+          <h2>Console fold-out surface</h2>
+          <p class="lead">平时像窄柜或控制台，收到命令后桌面翻出，支撑腿落下。这里用 9 个节点共同形成一个可用平台。</p>
+          <span class="mechanism-tag">Console-to-table fold-out</span>
+          <div class="transform-controls" data-transform-controls>
+            <label class="transform-field">Length m<input data-length-input type="number" min="1.8" max="3.6" step="0.3" value="2.4"></label>
+            <label class="transform-field">Width m<input data-width-input type="number" min="1.8" max="3.6" step="0.3" value="3.0"></label>
+            <button class="transform-button primary" data-apply-command>Apply command</button>
+            <button class="transform-button" data-random-command>Random command</button>
+            <button class="transform-button" data-pause-toggle>Stop animation</button>
+            <div class="transform-status" data-transform-status>Booting 9 cabinets...</div>
+          </div>
+        </div>
+        <div class="transform-stage-grid">
+          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
+        </div>
+      </main>
+    </section>
+
+    <section class="slide full transform-slide" data-transform-mechanism="center-leaf" data-notes="Combined 2D and 3D animation for single-axis center leaf extension.">
+      <main class="transform-demo">
+        <div class="transform-copy">
+          <p class="print-title">Single-axis center leaf</p>
+          <p class="kicker">Transform Mechanism 5 / 8</p>
+          <h2>Single-axis center leaf</h2>
+          <p class="lead">两侧桌面分开，中间延长叶升起补面。它通常只改变长度，但作为节点能力可以与 3x3 阵列叠加使用。</p>
+          <span class="mechanism-tag">Center extension leaf</span>
+          <div class="transform-controls" data-transform-controls>
+            <label class="transform-field">Length m<input data-length-input type="number" min="1.8" max="3.6" step="0.3" value="3.3"></label>
+            <label class="transform-field">Width m<input data-width-input type="number" min="1.8" max="3.6" step="0.3" value="2.4"></label>
+            <button class="transform-button primary" data-apply-command>Apply command</button>
+            <button class="transform-button" data-random-command>Random command</button>
+            <button class="transform-button" data-pause-toggle>Stop animation</button>
+            <div class="transform-status" data-transform-status>Booting 9 cabinets...</div>
+          </div>
+        </div>
+        <div class="transform-stage-grid">
+          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
+        </div>
+      </main>
+    </section>
+
+    <section class="slide full transform-slide" data-transform-mechanism="electric" data-notes="Combined 2D and 3D animation for electric single-axis extension with rails and motor status.">
+      <main class="transform-demo">
+        <div class="transform-copy">
+          <p class="print-title">Electric single-axis</p>
+          <p class="kicker">Transform Mechanism 6 / 8</p>
+          <h2>Electric single-axis extension</h2>
+          <p class="lead">电机驱动滑轨拉开桌面，中心叶自动出现。动画突出电动导轨、电机状态和同步锁定。</p>
+          <span class="mechanism-tag">Motorized dining table logic</span>
+          <div class="transform-controls" data-transform-controls>
+            <label class="transform-field">Length m<input data-length-input type="number" min="1.8" max="3.6" step="0.3" value="3.6"></label>
+            <label class="transform-field">Width m<input data-width-input type="number" min="1.8" max="3.6" step="0.3" value="2.1"></label>
+            <button class="transform-button primary" data-apply-command>Apply command</button>
+            <button class="transform-button" data-random-command>Random command</button>
+            <button class="transform-button" data-pause-toggle>Stop animation</button>
+            <div class="transform-status" data-transform-status>Booting 9 cabinets...</div>
+          </div>
+        </div>
+        <div class="transform-stage-grid">
+          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
+        </div>
+      </main>
+    </section>
+
+    <section class="slide full transform-slide" data-transform-mechanism="lift" data-notes="Combined 2D and 3D animation for lift plus unfold coffee-to-dining transformation.">
+      <main class="transform-demo">
+        <div class="transform-copy">
+          <p class="print-title">Lift and unfold</p>
+          <p class="kicker">Transform Mechanism 7 / 8</p>
+          <h2>Lift + unfold</h2>
+          <p class="lead">柜体先把桌面升到工作或餐桌高度，再展开隐藏叶片。这类机制强调用途转换和高度变化。</p>
+          <span class="mechanism-tag">Coffee-to-dining transform</span>
+          <div class="transform-controls" data-transform-controls>
+            <label class="transform-field">Length m<input data-length-input type="number" min="1.8" max="3.6" step="0.3" value="2.7"></label>
+            <label class="transform-field">Width m<input data-width-input type="number" min="1.8" max="3.6" step="0.3" value="2.7"></label>
+            <button class="transform-button primary" data-apply-command>Apply command</button>
+            <button class="transform-button" data-random-command>Random command</button>
+            <button class="transform-button" data-pause-toggle>Stop animation</button>
+            <div class="transform-status" data-transform-status>Booting 9 cabinets...</div>
+          </div>
+        </div>
+        <div class="transform-stage-grid">
+          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
+        </div>
+      </main>
+    </section>
+
+    <section class="slide full transform-slide" data-transform-mechanism="origami" data-notes="Combined 2D and 3D animation for origami wing concept mechanisms.">
+      <main class="transform-demo">
+        <div class="transform-copy">
+          <p class="print-title">Origami wings</p>
+          <p class="kicker">Transform Mechanism 8 / 8</p>
+          <h2>Origami wing expansion</h2>
+          <p class="lead">参考 Origami Kinetic Table：桌面旋转，四个隐藏翼片展开。它是最接近“自动 + 长宽都变”的概念方向。</p>
+          <span class="mechanism-tag">Origami Kinetic Table concept</span>
+          <div class="transform-controls" data-transform-controls>
+            <label class="transform-field">Length m<input data-length-input type="number" min="1.8" max="3.6" step="0.3" value="2.4"></label>
+            <label class="transform-field">Width m<input data-width-input type="number" min="1.8" max="3.6" step="0.3" value="2.4"></label>
+            <button class="transform-button primary" data-apply-command>Apply command</button>
+            <button class="transform-button" data-random-command>Random command</button>
+            <button class="transform-button" data-pause-toggle>Stop animation</button>
+            <div class="transform-status" data-transform-status>Booting 9 cabinets...</div>
+          </div>
+        </div>
+        <div class="transform-stage-grid">
+          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
+        </div>
       </main>
     </section>
 
@@ -1599,7 +1765,7 @@
         <p class="print-title">Planner pseudocode and code</p>
         <p class="kicker">Pseudocode + Reference Code</p>
         <h2>The planner is a bounded search, not magic.</h2>
-        <p class="lead">伪代码给设计师和机器人团队读；Python 参考实现已经在仓库中，包含 exact fit、mixed fit、duplicate、tolerance、infeasible 和 determinism 测试。</p>
+        <p class="lead">伪代码给设计师和机器人团队读；Python 参考实现已经在仓库中。前面 8 个动画页来自变形桌调研：几何滑移、伸缩蝶叶、翻盖、控制台翻折、中心叶、电动单轴、升降展开、折纸翼片。</p>
         <div class="code-grid">
           <section class="code-panel">
             <header>伪代码 / Pseudocode</header>
@@ -3120,6 +3286,523 @@ for p in plan.placements:
       resize3d();
       requestAnimationFrame(animate3d);
     }
+  </script>
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.165.0/build/three.module.js';
+
+    const BASE = 0.6;
+    const BASE_HEIGHT = 0.5;
+    const MIN_SIZE = 1.8;
+    const MAX_SIZE = 3.6;
+    const STEP = 0.3;
+    const commandMs = 850;
+    const moveMs = 2600;
+    const transformMs = 2500;
+    const holdMs = 1800;
+    const totalMs = commandMs + moveMs + transformMs + holdMs;
+    const colors = ['#fffef8', '#dfe7e1', '#ead9bd', '#dce4e5', '#f1e5ba', '#d9d7ce', '#e7efe4', '#ded8cb', '#f5efe2'];
+    const mechanismNames = {
+      geometric: 'Two-axis geometric sliding',
+      butterfly: 'Telescopic + butterfly leaves',
+      book: 'Book / flip-top',
+      console: 'Console fold-out',
+      'center-leaf': 'Single-axis center leaf',
+      electric: 'Electric single-axis',
+      lift: 'Lift + unfold',
+      origami: 'Origami wings',
+    };
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function snapDimension(value) {
+      const snapped = Math.round(clamp(Number(value) || MIN_SIZE, MIN_SIZE, MAX_SIZE) / STEP) * STEP;
+      return Number(snapped.toFixed(1));
+    }
+
+    function randomDimension(previous) {
+      let next;
+      do {
+        next = {
+          length: Number((MIN_SIZE + Math.floor(Math.random() * 7) * STEP).toFixed(1)),
+          width: Number((MIN_SIZE + Math.floor(Math.random() * 7) * STEP).toFixed(1)),
+        };
+      } while (previous && next.length === previous.length && next.width === previous.width);
+      return next;
+    }
+
+    function easeInOut(t) {
+      return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function resizeCanvas(canvas, ctx) {
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
+      const pixelWidth = Math.round(width * ratio);
+      const pixelHeight = Math.round(height * ratio);
+      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        canvas.width = pixelWidth;
+        canvas.height = pixelHeight;
+      }
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      return { width, height };
+    }
+
+    function drawRoundRect(ctx, x, y, w, h, r) {
+      const radius = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + w - radius, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+      ctx.lineTo(x + w, y + h - radius);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+      ctx.lineTo(x + radius, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+    }
+
+    class TransformableTableDemo {
+      constructor(section, index) {
+        this.section = section;
+        this.index = index;
+        this.mechanism = section.dataset.transformMechanism;
+        this.canvas2d = section.querySelector('canvas[data-view="2d"]');
+        this.canvas3d = section.querySelector('canvas[data-view="3d"]');
+        this.ctx = this.canvas2d.getContext('2d');
+        this.status = section.querySelector('[data-transform-status]');
+        this.lengthInput = section.querySelector('[data-length-input]');
+        this.widthInput = section.querySelector('[data-width-input]');
+        this.pauseButton = section.querySelector('[data-pause-toggle]');
+        this.paused = false;
+        this.elapsed = 0;
+        this.lastTime = performance.now();
+        this.dimensions = {
+          length: snapDimension(this.lengthInput.value),
+          width: snapDimension(this.widthInput.value),
+        };
+        this.modules = this.createModules();
+        this.setup3d();
+        this.bindControls(section);
+        this.startCommand(this.dimensions, true);
+      }
+
+      bindControls(section) {
+        section.querySelector('[data-apply-command]').addEventListener('click', () => {
+          this.startCommand(this.readInputs());
+        });
+        section.querySelector('[data-random-command]').addEventListener('click', () => {
+          const dims = randomDimension(this.dimensions);
+          this.lengthInput.value = dims.length.toFixed(1);
+          this.widthInput.value = dims.width.toFixed(1);
+          this.startCommand(dims);
+        });
+        this.pauseButton.addEventListener('click', () => {
+          this.paused = !this.paused;
+          this.pauseButton.textContent = this.paused ? 'Resume animation' : 'Stop animation';
+          this.lastTime = performance.now();
+        });
+        for (const input of [this.lengthInput, this.widthInput]) {
+          input.addEventListener('change', () => {
+            input.value = snapDimension(input.value).toFixed(1);
+          });
+          input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') this.startCommand(this.readInputs());
+          });
+        }
+      }
+
+      readInputs() {
+        return {
+          length: snapDimension(this.lengthInput.value),
+          width: snapDimension(this.widthInput.value),
+        };
+      }
+
+      createModules() {
+        const modules = [];
+        for (let row = 0; row < 3; row += 1) {
+          for (let col = 0; col < 3; col += 1) {
+            const index = row * 3 + col;
+            const x = -2.2 + col * 0.78 + row * 0.04;
+            const z = -1.25 + row * 0.78;
+            modules.push({
+              id: `C${index + 1}`,
+              index,
+              row,
+              col,
+              startPose: { x, z },
+              currentPose: { x, z },
+              goalPose: { x, z },
+              startTop: { length: BASE, width: BASE, lift: 0 },
+              currentTop: { length: BASE, width: BASE, lift: 0 },
+              goalTop: { length: BASE, width: BASE, lift: 0 },
+            });
+          }
+        }
+        return modules;
+      }
+
+      planFor(dimensions) {
+        return this.modules.map((module) => ({
+          pose: {
+            x: (module.col - 1) * (dimensions.length / 3),
+            z: (module.row - 1) * (dimensions.width / 3),
+          },
+          top: {
+            length: dimensions.length / 3,
+            width: dimensions.width / 3,
+            lift: this.mechanism === 'lift' ? 0.34 : 0,
+          },
+        }));
+      }
+
+      sampleVisualState() {
+        const moveProgress = easeInOut(clamp((this.elapsed - commandMs) / moveMs, 0, 1));
+        const transformProgress = easeInOut(clamp((this.elapsed - commandMs - moveMs * 0.25) / transformMs, 0, 1));
+        for (const module of this.modules) {
+          module.currentPose = {
+            x: lerp(module.startPose.x, module.goalPose.x, moveProgress),
+            z: lerp(module.startPose.z, module.goalPose.z, moveProgress),
+          };
+          module.currentTop = {
+            length: lerp(module.startTop.length, module.goalTop.length, transformProgress),
+            width: lerp(module.startTop.width, module.goalTop.width, transformProgress),
+            lift: lerp(module.startTop.lift, module.goalTop.lift, transformProgress),
+          };
+        }
+      }
+
+      commitGoal() {
+        for (const module of this.modules) {
+          module.currentPose = { ...module.goalPose };
+          module.currentTop = { ...module.goalTop };
+        }
+      }
+
+      startCommand(dimensions, initial = false) {
+        if (!initial) this.sampleVisualState();
+        this.dimensions = {
+          length: snapDimension(dimensions.length),
+          width: snapDimension(dimensions.width),
+        };
+        this.lengthInput.value = this.dimensions.length.toFixed(1);
+        this.widthInput.value = this.dimensions.width.toFixed(1);
+        const plan = this.planFor(this.dimensions);
+        this.modules.forEach((module, index) => {
+          module.startPose = { ...module.currentPose };
+          module.startTop = { ...module.currentTop };
+          module.goalPose = { ...plan[index].pose };
+          module.goalTop = { ...plan[index].top };
+        });
+        this.elapsed = initial ? commandMs * 0.55 : 0;
+        this.lastTime = performance.now();
+      }
+
+      currentProgress(time) {
+        if (!this.paused) {
+          this.elapsed += Math.min(48, time - this.lastTime);
+        }
+        this.lastTime = time;
+        if (this.elapsed > totalMs) {
+          this.commitGoal();
+          this.startCommand(randomDimension(this.dimensions));
+        }
+        return {
+          move: easeInOut(clamp((this.elapsed - commandMs) / moveMs, 0, 1)),
+          transform: easeInOut(clamp((this.elapsed - commandMs - moveMs * 0.25) / transformMs, 0, 1)),
+          phase: this.elapsed < commandMs ? 'command'
+            : this.elapsed < commandMs + moveMs * 0.55 ? 'moving'
+            : this.elapsed < commandMs + moveMs + transformMs ? 'transforming'
+            : 'locked',
+        };
+      }
+
+      moduleState(module, progress) {
+        return {
+          pose: {
+            x: lerp(module.startPose.x, module.goalPose.x, progress.move),
+            z: lerp(module.startPose.z, module.goalPose.z, progress.move),
+          },
+          top: {
+            length: lerp(module.startTop.length, module.goalTop.length, progress.transform),
+            width: lerp(module.startTop.width, module.goalTop.width, progress.transform),
+            lift: lerp(module.startTop.lift, module.goalTop.lift, progress.transform),
+          },
+        };
+      }
+
+      setup3d() {
+        this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas3d, antialias: true, alpha: true });
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+        this.scene.add(new THREE.HemisphereLight(0xf7f4ec, 0x242822, 2.4));
+        const key = new THREE.DirectionalLight(0xffffff, 2.1);
+        key.position.set(4, 6, 4);
+        this.scene.add(key);
+        const floor = new THREE.Mesh(
+          new THREE.PlaneGeometry(6.8, 6.2),
+          new THREE.MeshStandardMaterial({ color: 0x242822, roughness: 0.92, metalness: 0.04 })
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -0.02;
+        this.scene.add(floor);
+        const grid = new THREE.GridHelper(6.8, 14, 0x74a66f, 0x4b5349);
+        grid.position.y = 0.002;
+        this.scene.add(grid);
+        this.target3d = new THREE.Mesh(
+          new THREE.BoxGeometry(1, 0.025, 1),
+          new THREE.MeshStandardMaterial({ color: 0x74a66f, transparent: true, opacity: 0.2, roughness: 0.55 })
+        );
+        this.target3d.position.y = 0.78;
+        this.scene.add(this.target3d);
+        this.moduleMeshes = this.modules.map((module) => this.makeModuleMesh(module));
+      }
+
+      makeModuleMesh(module) {
+        const group = new THREE.Group();
+        const base = new THREE.Mesh(
+          new THREE.BoxGeometry(1, 1, 1),
+          new THREE.MeshStandardMaterial({ color: 0xd8d2c4, roughness: 0.75, metalness: 0.04 })
+        );
+        base.position.y = BASE_HEIGHT / 2;
+        base.scale.set(BASE, BASE_HEIGHT, BASE);
+        group.add(base);
+        const top = new THREE.Mesh(
+          new THREE.BoxGeometry(1, 1, 1),
+          new THREE.MeshStandardMaterial({ color: colors[module.index % colors.length], roughness: 0.62, metalness: 0.05 })
+        );
+        group.add(top);
+        const panels = Array.from({ length: 4 }, (_, i) => {
+          const panel = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 1, 1),
+            new THREE.MeshStandardMaterial({ color: i % 2 ? 0xd9e6dc : 0xead9bd, transparent: true, opacity: 0.86, roughness: 0.65 })
+          );
+          group.add(panel);
+          return panel;
+        });
+        const rail = new THREE.Mesh(
+          new THREE.BoxGeometry(1, 1, 1),
+          new THREE.MeshStandardMaterial({ color: 0x2f3632, roughness: 0.55, metalness: 0.25 })
+        );
+        group.add(rail);
+        const motor = new THREE.Mesh(
+          new THREE.BoxGeometry(1, 1, 1),
+          new THREE.MeshStandardMaterial({ color: 0x1e6b4a, roughness: 0.45, metalness: 0.15 })
+        );
+        group.add(motor);
+        const outline = new THREE.LineSegments(
+          new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)),
+          new THREE.LineBasicMaterial({ color: 0x151815, transparent: true, opacity: 0.22 })
+        );
+        base.add(outline);
+        this.scene.add(group);
+        return { group, base, top, panels, rail, motor };
+      }
+
+      layout2d(view) {
+        const world = { minX: -3.05, maxX: 3.05, minZ: -2.7, maxZ: 2.9 };
+        const unit = Math.min((view.width - 46) / (world.maxX - world.minX), (view.height - 56) / (world.maxZ - world.minZ));
+        return {
+          world,
+          unit,
+          left: (view.width - (world.maxX - world.minX) * unit) / 2,
+          top: (view.height - (world.maxZ - world.minZ) * unit) / 2,
+        };
+      }
+
+      toPixel(point, layout) {
+        return {
+          x: layout.left + (point.x - layout.world.minX) * layout.unit,
+          y: layout.top + (point.z - layout.world.minZ) * layout.unit,
+        };
+      }
+
+      drawRect2d(ctx, cx, cz, length, width, layout, fill, stroke, lineWidth = 1, rotation = 0) {
+        const center = this.toPixel({ x: cx, z: cz }, layout);
+        const w = length * layout.unit;
+        const h = width * layout.unit;
+        ctx.save();
+        ctx.translate(center.x, center.y);
+        ctx.rotate(rotation);
+        if (fill) {
+          ctx.fillStyle = fill;
+          drawRoundRect(ctx, -w / 2, -h / 2, w, h, 4);
+          ctx.fill();
+        }
+        if (stroke) {
+          ctx.lineWidth = lineWidth;
+          ctx.strokeStyle = stroke;
+          drawRoundRect(ctx, -w / 2, -h / 2, w, h, 4);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      drawMechanism2d(ctx, state, module, progress, layout) {
+        const { pose, top } = state;
+        const p = progress.transform;
+        const fill = colors[module.index % colors.length];
+        const stroke = module.index % 2 ? 'rgba(30, 107, 74, .54)' : 'rgba(21, 24, 21, .34)';
+        this.drawRect2d(ctx, pose.x, pose.z, top.length, top.width, layout, fill, stroke, 1.2, this.mechanism === 'origami' ? p * Math.PI / 4 : 0);
+
+        ctx.save();
+        ctx.globalAlpha = 0.62;
+        if (this.mechanism === 'geometric') {
+          this.drawRect2d(ctx, pose.x - top.length * .18 * p, pose.z - top.width * .18 * p, top.length * .42, top.width * .42, layout, 'rgba(30,107,74,.12)', 'rgba(30,107,74,.36)');
+          this.drawRect2d(ctx, pose.x + top.length * .18 * p, pose.z + top.width * .18 * p, top.length * .42, top.width * .42, layout, 'rgba(30,107,74,.12)', 'rgba(30,107,74,.36)');
+        } else if (this.mechanism === 'butterfly') {
+          this.drawRect2d(ctx, pose.x, pose.z - top.width * .18, top.length * .82, top.width * .18 * p, layout, 'rgba(197,139,58,.24)', 'rgba(197,139,58,.62)');
+          this.drawRect2d(ctx, pose.x, pose.z + top.width * .18, top.length * .82, top.width * .18 * p, layout, 'rgba(197,139,58,.24)', 'rgba(197,139,58,.62)');
+        } else if (this.mechanism === 'book') {
+          this.drawRect2d(ctx, pose.x + top.length * .22 * p, pose.z, top.length * .46 * p, top.width * .92, layout, 'rgba(197,139,58,.22)', 'rgba(197,139,58,.62)');
+        } else if (this.mechanism === 'console') {
+          this.drawRect2d(ctx, pose.x, pose.z + top.width * .25 * p, top.length * .88, top.width * .24 * p, layout, 'rgba(197,139,58,.18)', 'rgba(197,139,58,.58)');
+        } else if (this.mechanism === 'center-leaf' || this.mechanism === 'electric') {
+          this.drawRect2d(ctx, pose.x, pose.z, top.length * .18 * p, top.width * .96, layout, 'rgba(30,107,74,.18)', 'rgba(30,107,74,.62)');
+        } else if (this.mechanism === 'lift') {
+          this.drawRect2d(ctx, pose.x + .04 * p, pose.z + .05 * p, top.length, top.width, layout, 'rgba(21,24,21,.1)', null);
+        } else if (this.mechanism === 'origami') {
+          this.drawRect2d(ctx, pose.x, pose.z - top.width * .42 * p, top.length * .34, top.width * .28 * p, layout, 'rgba(197,139,58,.24)', 'rgba(197,139,58,.62)', 1, Math.PI / 4);
+          this.drawRect2d(ctx, pose.x, pose.z + top.width * .42 * p, top.length * .34, top.width * .28 * p, layout, 'rgba(197,139,58,.24)', 'rgba(197,139,58,.62)', 1, -Math.PI / 4);
+        }
+        if (this.mechanism === 'electric') {
+          this.drawRect2d(ctx, pose.x, pose.z, top.length * .88, .035, layout, 'rgba(21,24,21,.28)', null);
+          this.drawRect2d(ctx, pose.x - top.length * .32 + top.length * .64 * p, pose.z, .08, .12, layout, 'rgba(30,107,74,.9)', null);
+        }
+        ctx.restore();
+
+        this.drawRect2d(ctx, pose.x, pose.z, BASE, BASE, layout, 'rgba(255,253,250,.54)', 'rgba(163,93,69,.62)', 1.2);
+        const label = this.toPixel(pose, layout);
+        ctx.fillStyle = 'rgba(21,24,21,.76)';
+        ctx.font = '700 10px Inter, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(module.id, label.x, label.y + 3);
+        ctx.textAlign = 'start';
+      }
+
+      draw2d(progress) {
+        const view = resizeCanvas(this.canvas2d, this.ctx);
+        const layout = this.layout2d(view);
+        const ctx = this.ctx;
+        ctx.clearRect(0, 0, view.width, view.height);
+        this.drawRect2d(ctx, 0, 0, this.dimensions.length, this.dimensions.width, layout, 'rgba(30,107,74,.06)', 'rgba(30,107,74,.72)', 2);
+        ctx.fillStyle = 'rgba(30,107,74,.94)';
+        ctx.font = '700 12px Inter, Arial, sans-serif';
+        ctx.fillText(`Target ${this.dimensions.length.toFixed(1)}m x ${this.dimensions.width.toFixed(1)}m`, 16, view.height - 18);
+        for (const module of this.modules) {
+          this.drawMechanism2d(ctx, this.moduleState(module, progress), module, progress, layout);
+        }
+      }
+
+      update3dModule(mesh, state, module, progress) {
+        const { pose, top } = state;
+        const p = progress.transform;
+        mesh.group.position.set(pose.x, 0, pose.z);
+        mesh.top.visible = true;
+        mesh.top.position.set(0, BASE_HEIGHT + 0.045 + top.lift, 0);
+        mesh.top.scale.set(top.length, 0.055, top.width);
+        mesh.top.rotation.set(0, this.mechanism === 'origami' ? p * Math.PI / 4 : 0, 0);
+        mesh.top.material.color.set(colors[module.index % colors.length]);
+        mesh.panels.forEach((panel) => { panel.visible = false; });
+        mesh.rail.visible = false;
+        mesh.motor.visible = false;
+
+        const setPanel = (panel, x, z, sx, sz, y = BASE_HEIGHT + 0.095 + top.lift, rx = 0, ry = 0, rz = 0) => {
+          panel.visible = true;
+          panel.position.set(x, y, z);
+          panel.scale.set(Math.max(0.01, sx), 0.04, Math.max(0.01, sz));
+          panel.rotation.set(rx, ry, rz);
+        };
+
+        if (this.mechanism === 'geometric') {
+          setPanel(mesh.panels[0], -top.length * .18 * p, -top.width * .18 * p, top.length * .38, top.width * .38);
+          setPanel(mesh.panels[1], top.length * .18 * p, top.width * .18 * p, top.length * .38, top.width * .38);
+        } else if (this.mechanism === 'butterfly') {
+          setPanel(mesh.panels[0], 0, -top.width * .22, top.length * .82, top.width * .18, BASE_HEIGHT + 0.11 + top.lift, (1 - p) * 1.15);
+          setPanel(mesh.panels[1], 0, top.width * .22, top.length * .82, top.width * .18, BASE_HEIGHT + 0.11 + top.lift, -(1 - p) * 1.15);
+        } else if (this.mechanism === 'book') {
+          setPanel(mesh.panels[0], top.length * .25 * p, 0, top.length * .45, top.width * .92, BASE_HEIGHT + 0.12 + top.lift, 0, 0, (1 - p) * -1.25);
+        } else if (this.mechanism === 'console') {
+          setPanel(mesh.panels[0], 0, top.width * .28 * p, top.length * .88, top.width * .25, BASE_HEIGHT + 0.11 + top.lift, (1 - p) * -1.2);
+          setPanel(mesh.panels[1], -top.length * .36, top.width * .44 * p, .035, .035, BASE_HEIGHT * .52, 0, 0, 0);
+          mesh.panels[1].scale.y = BASE_HEIGHT * p;
+          setPanel(mesh.panels[2], top.length * .36, top.width * .44 * p, .035, .035, BASE_HEIGHT * .52, 0, 0, 0);
+          mesh.panels[2].scale.y = BASE_HEIGHT * p;
+        } else if (this.mechanism === 'center-leaf' || this.mechanism === 'electric') {
+          setPanel(mesh.panels[0], 0, 0, top.length * .18 * p, top.width * .94, BASE_HEIGHT + 0.12 + top.lift, (1 - p) * 1.0);
+        } else if (this.mechanism === 'lift') {
+          setPanel(mesh.panels[0], 0, 0, .045, .045, BASE_HEIGHT * .55 + top.lift * .5);
+          mesh.panels[0].scale.y = BASE_HEIGHT + top.lift;
+        } else if (this.mechanism === 'origami') {
+          setPanel(mesh.panels[0], 0, -top.width * .48 * p, top.length * .3, top.width * .26 * p, BASE_HEIGHT + 0.12 + top.lift, 0, Math.PI / 4);
+          setPanel(mesh.panels[1], 0, top.width * .48 * p, top.length * .3, top.width * .26 * p, BASE_HEIGHT + 0.12 + top.lift, 0, -Math.PI / 4);
+          setPanel(mesh.panels[2], -top.length * .48 * p, 0, top.length * .26 * p, top.width * .3, BASE_HEIGHT + 0.12 + top.lift, 0, -Math.PI / 4);
+          setPanel(mesh.panels[3], top.length * .48 * p, 0, top.length * .26 * p, top.width * .3, BASE_HEIGHT + 0.12 + top.lift, 0, Math.PI / 4);
+        }
+
+        if (this.mechanism === 'electric') {
+          mesh.rail.visible = true;
+          mesh.rail.position.set(0, BASE_HEIGHT + 0.075, 0);
+          mesh.rail.scale.set(top.length * .9, .035, .045);
+          mesh.motor.visible = true;
+          mesh.motor.position.set(-top.length * .36 + top.length * .72 * p, BASE_HEIGHT + 0.13, 0);
+          mesh.motor.scale.set(.1, .08, .12);
+        }
+      }
+
+      draw3d(progress) {
+        const rect = this.canvas3d.getBoundingClientRect();
+        const width = Math.max(1, rect.width);
+        const height = Math.max(1, rect.height);
+        this.renderer.setSize(width, height, false);
+        this.camera.aspect = width / height;
+        this.camera.fov = width < 640 ? 58 : 42;
+        this.camera.position.set(3.4, 3.5, 4.4);
+        this.camera.lookAt(0, 0.42, 0.1);
+        this.camera.updateProjectionMatrix();
+        this.target3d.scale.set(this.dimensions.length, 1, this.dimensions.width);
+        this.target3d.material.opacity = progress.phase === 'locked' ? 0.3 : 0.18;
+        this.modules.forEach((module, index) => this.update3dModule(this.moduleMeshes[index], this.moduleState(module, progress), module, progress));
+        this.scene.rotation.y = 0.08 * Math.sin(performance.now() * 0.00024);
+        this.renderer.render(this.scene, this.camera);
+      }
+
+      update(time) {
+        const progress = this.currentProgress(time);
+        this.draw2d(progress);
+        this.draw3d(progress);
+        if (this.status) {
+          const paused = this.paused ? 'paused' : 'running';
+          this.status.textContent = `${mechanismNames[this.mechanism]} | ${this.dimensions.length.toFixed(1)}m x ${this.dimensions.width.toFixed(1)}m | ${progress.phase} | 9 fixed bases | ${paused}`;
+        }
+      }
+    }
+
+    const transformDemos = Array.from(document.querySelectorAll('[data-transform-mechanism]'))
+      .map((section, index) => new TransformableTableDemo(section, index));
+    window.transformDemos = transformDemos;
+
+    function animationLoop(time) {
+      for (const demo of transformDemos) {
+        if (demo.section.classList.contains('active')) {
+          demo.update(time);
+        } else {
+          demo.lastTime = time;
+        }
+      }
+      requestAnimationFrame(animationLoop);
+    }
+
+    requestAnimationFrame(animationLoop);
   </script>
 </body>
 </html>
