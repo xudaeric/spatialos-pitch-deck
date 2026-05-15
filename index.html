@@ -832,6 +832,10 @@
       font-weight: 760;
     }
 
+    .demo-pill:not(#target2dLabel) {
+      display: none;
+    }
+
     .anim-legend {
       position: absolute;
       left: 24px;
@@ -1001,6 +1005,11 @@
       .anim2d-wrap {
         min-height: 500px;
       }
+
+      .demo-pill:not(#target2dLabel),
+      .anim-legend {
+        display: none;
+      }
     }
 
     @media (max-width: 680px) {
@@ -1067,6 +1076,18 @@
       .demo-status {
         left: 14px;
         top: 14px;
+        right: 14px;
+        max-width: none;
+      }
+
+      .demo-pill:not(#target2dLabel),
+      .anim-legend {
+        display: none;
+      }
+
+      #target2dLabel {
+        max-width: 100%;
+        line-height: 1.25;
       }
 
       .three-overlay {
@@ -1552,6 +1573,7 @@
             <span class="demo-pill">Parallel reserved lanes</span>
             <span class="demo-pill">Varied cabinet sizes</span>
             <span class="demo-pill">Human keep-out zone</span>
+            <span class="demo-pill">Collision volumes active</span>
             <span class="demo-pill">Flush final platform</span>
           </div>
           <p class="anim-legend"><strong>Simple idea:</strong> the room proposes a rectangle tiling, reserves a non-crossing path for every cabinet, then all selected cabinets converge at the same time.</p>
@@ -1750,9 +1772,25 @@ for p in plan.placements:
       const planMs = 1250;
       const moveMs = 4200;
       const holdMs = 1700;
-      const cabinetCount = 24;
-      const room = { minX: -8.2, maxX: 8.2, minY: -6.1, maxY: 8.9 };
-      const person = { x: 0, y: 7.15, radius: 0.62 };
+      const room = { minX: -14, maxX: 14, minY: -8, maxY: 10 };
+      const person = { x: 0, y: 8.25, radius: 0.62 };
+      const collisionSamples = 72;
+      const cabinetSizes = [
+        { w: 5, h: 2 }, { w: 5, h: 2 }, { w: 5, h: 2 },
+        { w: 4, h: 2 }, { w: 4, h: 2 }, { w: 4, h: 2 },
+        { w: 3, h: 2 }, { w: 3, h: 2 }, { w: 3, h: 2 },
+        { w: 2, h: 2 }, { w: 2, h: 2 }, { w: 2, h: 2 },
+        { w: 5, h: 1 }, { w: 5, h: 1 }, { w: 4, h: 1 }, { w: 4, h: 1 },
+        { w: 2, h: 1 }, { w: 2, h: 1 }, { w: 1, h: 2 }, { w: 1, h: 2 },
+        { w: 1, h: 1 }, { w: 1, h: 1 },
+      ];
+      const dimensionOptions = [
+        { length: 10, width: 2 }, { length: 8, width: 2 }, { length: 5, width: 3 },
+        { length: 5, width: 2 }, { length: 4, width: 3 }, { length: 4, width: 2 },
+        { length: 3, width: 2 }, { length: 2, width: 2 }, { length: 5, width: 1 },
+        { length: 4, width: 1 }, { length: 2, width: 1 }, { length: 1, width: 2 },
+      ];
+      const cabinetCount = cabinetSizes.length;
       let plan = null;
       let cabinetPool = null;
       let cycleStart = performance.now();
@@ -1764,15 +1802,11 @@ for p in plan.placements:
       function randomDimensions(previous) {
         let next;
         do {
-          next = {
-            length: Math.floor(Math.random() * 10) + 1,
-            width: Math.floor(Math.random() * 10) + 1,
-          };
+          next = dimensionOptions[Math.floor(Math.random() * dimensionOptions.length)];
         } while (
-          next.length * next.width < 6 ||
           (previous && next.length === previous.length && next.width === previous.width)
         );
-        return next;
+        return { ...next };
       }
 
       function splitRect(rect, out, depth = 0) {
@@ -1851,7 +1885,8 @@ for p in plan.placements:
             h,
           };
           const nearCenter = Math.abs(candidate.x) < 2 && Math.abs(candidate.y) < 1.4;
-          if (nearCenter || !rectClearsPerson(candidate, 0.45)) continue;
+          const reservedPlatformZone = Math.abs(candidate.x) < 5.6 && candidate.y > -4.2 && candidate.y < 4.2;
+          if (nearCenter || reservedPlatformZone || !rectClearsPerson(candidate, 0.45)) continue;
           if (placed.every((other) => !rectsOverlap(candidate, other, 0.15))) return candidate;
         }
         return { x: room.minX + w / 2 + 0.4, y: room.minY + h / 2 + placed.length * 0.42, w, h };
@@ -1859,8 +1894,8 @@ for p in plan.placements:
 
       function createCabinetPool() {
         const placed = [];
-        return Array.from({ length: cabinetCount }, (_, index) => {
-          const size = randomCabinetSize();
+        const sizes = [...cabinetSizes].sort(() => Math.random() - 0.5);
+        return sizes.map((size, index) => {
           const position = randomMessyPosition(size.w, size.h, placed);
           placed.push(position);
           return {
@@ -1869,9 +1904,10 @@ for p in plan.placements:
             h: size.h,
             current: { x: position.x, y: position.y },
             goal: { x: position.x, y: position.y },
-            goalW: size.w,
-            goalH: size.h,
             selected: false,
+            collisionBody: { w: size.w, h: size.h, padding: 0 },
+            delay: 0,
+            duration: 1,
             path: [{ x: position.x, y: position.y }],
           };
         });
@@ -1921,71 +1957,320 @@ for p in plan.placements:
         return path[path.length - 1];
       }
 
-      function buildPlan(nextDimensions) {
+      function bodyAt(cabinet, position, padding = 0) {
+        const body = cabinet.collisionBody || { w: cabinet.w, h: cabinet.h, padding: 0 };
+        const bodyPadding = padding + (body.padding || 0);
+        return {
+          x: position.x,
+          y: position.y,
+          w: body.w + bodyPadding * 2,
+          h: body.h + bodyPadding * 2,
+        };
+      }
+
+      function bodyHitsPerson(body, pad = 0.08) {
+        const nearestX = clamp(person.x, body.x - body.w / 2 - pad, body.x + body.w / 2 + pad);
+        const nearestY = clamp(person.y, body.y - body.h / 2 - pad, body.y + body.h / 2 + pad);
+        return Math.hypot(person.x - nearestX, person.y - nearestY) < person.radius + pad;
+      }
+
+      function pathClearsPerson(path, cabinet) {
+        for (let i = 1; i < path.length; i += 1) {
+          const clearance = person.radius + Math.max(cabinet.w, cabinet.h) * 0.55 + 0.16;
+          if (pointToSegmentDistance(person, path[i - 1], path[i]) < clearance) return false;
+        }
+        for (let i = 0; i <= collisionSamples; i += 1) {
+          if (bodyHitsPerson(bodyAt(cabinet, pointOnPath(path, i / collisionSamples)))) return false;
+        }
+        return true;
+      }
+
+      function candidatePaths(cabinet, orderIndex) {
+        const start = cabinet.current;
+        const goal = cabinet.goal;
+        const laneInset = 0.55 + (orderIndex % 14) * 0.48;
+        const leftX = room.minX + cabinet.w / 2 + laneInset;
+        const rightX = room.maxX - cabinet.w / 2 - laneInset;
+        const bottomY = room.minY + cabinet.h / 2 + laneInset;
+        const topY = room.maxY - cabinet.h / 2 - laneInset;
+        const options = [
+          [start, goal],
+          [start, { x: start.x, y: bottomY }, { x: goal.x, y: bottomY }, goal],
+          [start, { x: start.x, y: topY }, { x: goal.x, y: topY }, goal],
+          [start, { x: leftX, y: start.y }, { x: leftX, y: goal.y }, goal],
+          [start, { x: rightX, y: start.y }, { x: rightX, y: goal.y }, goal],
+          pathAroundPerson(start, goal, cabinet.w, cabinet.h),
+        ];
+        return options
+          .map((path) => path.map((point) => ({
+            x: clamp(point.x, room.minX + cabinet.w / 2, room.maxX - cabinet.w / 2),
+            y: clamp(point.y, room.minY + cabinet.h / 2, room.maxY - cabinet.h / 2),
+          })))
+          .filter((path) => pathClearsPerson(path, cabinet));
+      }
+
+      function pathConflicts(candidate, cabinet, planned) {
+        for (let i = 0; i <= collisionSamples; i += 1) {
+          const progress = i / collisionSamples;
+          const body = bodyAt(cabinet, motionPoint(cabinet, progress, candidate));
+          if (bodyHitsPerson(body)) return true;
+          for (const other of planned) {
+            const otherBody = bodyAt(other, motionPoint(other, progress));
+            if (rectsOverlap(body, otherBody, 0)) return true;
+          }
+        }
+        return false;
+      }
+
+      function motionPoint(cabinet, progress, pathOverride = null) {
+        const localProgress = clamp((progress - cabinet.delay) / cabinet.duration, 0, 1);
+        return pointOnPath(pathOverride || cabinet.path, localProgress);
+      }
+
+      function assignSafePaths(cabinets) {
+        const moving = [...cabinets].sort((a, b) => {
+          const aClearsPlatform = !a.selected && Math.abs(a.current.x) < 5.8 && a.current.y > -4.4 && a.current.y < 4.4;
+          const bClearsPlatform = !b.selected && Math.abs(b.current.x) < 5.8 && b.current.y > -4.4 && b.current.y < 4.4;
+          return Number(bClearsPlatform) - Number(aClearsPlatform)
+            || Number(b.selected) - Number(a.selected)
+            || distance(b.current, b.goal) - distance(a.current, a.goal);
+        });
+        const planned = [];
+        for (const cabinet of moving) {
+          const options = candidatePaths(cabinet, cabinet.id + planned.length);
+          let chosen = null;
+          cabinet.duration = 0.2;
+          for (let delayIndex = 0; delayIndex <= 40 && !chosen; delayIndex += 1) {
+            cabinet.delay = delayIndex * 0.02;
+            for (const candidate of options) {
+              if (!pathConflicts(candidate, cabinet, planned)) {
+                chosen = candidate;
+                break;
+              }
+            }
+          }
+          if (!chosen) return false;
+          cabinet.path = chosen;
+          planned.push(cabinet);
+        }
+        return repairSafeMotion(cabinets);
+      }
+
+      function findMotionConflict(cabinets) {
+        for (let i = 0; i <= collisionSamples; i += 1) {
+          const progress = i / collisionSamples;
+          for (let a = 0; a < cabinets.length; a += 1) {
+            const bodyA = bodyAt(cabinets[a], motionPoint(cabinets[a], progress));
+            if (bodyHitsPerson(bodyA)) return { a: cabinets[a], b: null };
+            for (let b = a + 1; b < cabinets.length; b += 1) {
+              const bodyB = bodyAt(cabinets[b], motionPoint(cabinets[b], progress));
+              if (rectsOverlap(bodyA, bodyB, 0)) return { a: cabinets[a], b: cabinets[b] };
+            }
+          }
+        }
+        return null;
+      }
+
+      function validateSafeMotion(cabinets) {
+        return findMotionConflict(cabinets) === null;
+      }
+
+      function repairSafeMotion(cabinets) {
+        for (let attempt = 0; attempt < 160; attempt += 1) {
+          const conflict = findMotionConflict(cabinets);
+          if (!conflict) return true;
+          const target = !conflict.b || conflict.a.delay <= conflict.b.delay ? conflict.a : conflict.b;
+          const maxDelay = 1 - target.duration;
+          if (target.delay < maxDelay - 0.001) {
+            target.delay = Math.min(maxDelay, target.delay + 0.02);
+          } else if (target.duration > 0.12) {
+            target.duration = Math.max(0.12, target.duration - 0.01);
+            target.delay = Math.min(1 - target.duration, target.delay);
+          } else {
+            return false;
+          }
+        }
+        return validateSafeMotion(cabinets);
+      }
+
+      function assignWallGoals(cabinets, selectedCabinets) {
+        const wallGap = 0.32;
+        const wallMargin = 0.55;
+        const states = {
+          left: { nextX: room.minX + wallMargin, columns: [] },
+          right: { nextX: room.maxX - wallMargin, columns: [] },
+        };
+
+        function placeInColumn(cabinet, side) {
+          const state = states[side];
+          let column = state.columns[state.columns.length - 1];
+          if (!column || column.y + cabinet.h > room.maxY - wallMargin) {
+            const x = side === 'left' ? state.nextX + cabinet.w / 2 : state.nextX - cabinet.w / 2;
+            column = { x, y: room.minY + wallMargin, width: cabinet.w };
+            state.columns.push(column);
+            state.nextX += side === 'left' ? cabinet.w + wallGap : -(cabinet.w + wallGap);
+          }
+          const goal = { x: column.x, y: column.y + cabinet.h / 2 };
+          column.y += cabinet.h + wallGap;
+          return goal;
+        }
+
+        cabinets
+          .filter((cabinet) => !selectedCabinets.has(cabinet.id))
+          .sort((a, b) => (b.w - a.w) || (b.h - a.h) || (a.id - b.id))
+          .forEach((cabinet, index) => {
+            const side = index % 2 === 0 ? 'left' : 'right';
+            cabinet.selected = false;
+            cabinet.goal = placeInColumn(cabinet, side);
+          });
+      }
+
+      function prepareSafeDemoStarts(solution, selectedCabinets, dimensions) {
+        for (const placement of solution) {
+          const cabinet = placement.cabinet;
+          const final = cabinet.goal;
+          const fromTop = final.y >= 0;
+          const outsideY = fromTop
+            ? dimensions.width / 2 + cabinet.h / 2 + 2.2
+            : -dimensions.width / 2 - cabinet.h / 2 - 2.2;
+          cabinet.current = {
+            x: final.x,
+            y: clamp(outsideY, room.minY + cabinet.h / 2 + 0.7, room.maxY - cabinet.h / 2 - 0.7),
+          };
+        }
+
+        for (const cabinet of cabinetPool) {
+          if (selectedCabinets.has(cabinet.id)) continue;
+          const inward = cabinet.goal.x < 0 ? 1.35 : -1.35;
+          cabinet.current = {
+            x: clamp(cabinet.goal.x + inward, room.minX + cabinet.w / 2, room.maxX - cabinet.w / 2),
+            y: cabinet.goal.y,
+          };
+        }
+      }
+
+      function solveExactTiling(dimensions, cabinets) {
+        const width = dimensions.length;
+        const height = dimensions.width;
+        const fullMask = (1 << width) - 1;
+        const rows = Array(height).fill(0);
+        const used = new Set();
+        const placements = [];
+        let nodes = 0;
+        const candidates = cabinets
+          .filter((cabinet) => cabinet.w <= width && cabinet.h <= height)
+          .sort((a, b) => (b.w * b.h - a.w * a.h) || b.w - a.w || a.id - b.id);
+
+        function firstEmpty() {
+          for (let y = 0; y < height; y += 1) {
+            if (rows[y] !== fullMask) {
+              for (let x = 0; x < width; x += 1) {
+                if ((rows[y] & (1 << x)) === 0) return { x, y };
+              }
+            }
+          }
+          return null;
+        }
+
+        function canPlace(x, y, w, h) {
+          if (x + w > width || y + h > height) return false;
+          const mask = ((1 << w) - 1) << x;
+          for (let row = y; row < y + h; row += 1) {
+            if (rows[row] & mask) return false;
+          }
+          return true;
+        }
+
+        function setPlace(x, y, w, h, on) {
+          const mask = ((1 << w) - 1) << x;
+          for (let row = y; row < y + h; row += 1) {
+            rows[row] = on ? rows[row] | mask : rows[row] & ~mask;
+          }
+        }
+
+        function search() {
+          nodes += 1;
+          if (nodes > 6000) return false;
+          const empty = firstEmpty();
+          if (!empty) return true;
+          for (const cabinet of candidates) {
+            if (used.has(cabinet.id)) continue;
+            if (!canPlace(empty.x, empty.y, cabinet.w, cabinet.h)) continue;
+            used.add(cabinet.id);
+            setPlace(empty.x, empty.y, cabinet.w, cabinet.h, true);
+            placements.push({ cabinet, x: empty.x, y: empty.y, w: cabinet.w, h: cabinet.h });
+            if (search()) return true;
+            placements.pop();
+            setPlace(empty.x, empty.y, cabinet.w, cabinet.h, false);
+            used.delete(cabinet.id);
+          }
+          return false;
+        }
+
+        return search() ? placements.map((placement) => ({ ...placement })) : null;
+      }
+
+      function buildPlan(nextDimensions, stagedRetry = false) {
         if (!cabinetPool) cabinetPool = createCabinetPool();
         if (plan) {
           for (const cabinet of cabinetPool) {
             cabinet.current = { ...cabinet.goal };
-            cabinet.w = cabinet.goalW;
-            cabinet.h = cabinet.goalH;
           }
         }
 
-        const rectangles = [];
-        splitRect({ x: 0, y: 0, w: nextDimensions.length, h: nextDimensions.width }, rectangles);
-        rectangles.sort((a, b) => (a.y - b.y) || (a.x - b.x) || (b.w * b.h - a.w * a.h));
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          const dimensions = attempt === 3 ? { length: 4, width: 3 } : (attempt === 0 ? nextDimensions : randomDimensions(nextDimensions));
+          const solution = solveExactTiling(dimensions, cabinetPool);
+          if (!solution) continue;
 
-        const bounds = { minX: room.minX, minY: room.minY, maxX: room.maxX, maxY: room.maxY };
-        const available = [...cabinetPool];
-        const selected = rectangles.map((rect) => {
-          const final = {
-            x: rect.x + rect.w / 2 - nextDimensions.length / 2,
-            y: rect.y + rect.h / 2 - nextDimensions.width / 2,
-          };
-          const chosenIndex = available.reduce((best, candidate, index) => {
-            const score = distance(candidate.current, final) + Math.abs(candidate.w * candidate.h - rect.w * rect.h) * 0.35;
-            return score < best.score ? { index, score } : best;
-          }, { index: 0, score: Infinity }).index;
-          const cabinet = available.splice(chosenIndex, 1)[0];
-          cabinet.selected = true;
-          cabinet.goal = final;
-          cabinet.goalW = rect.w;
-          cabinet.goalH = rect.h;
-          cabinet.path = pathAroundPerson(cabinet.current, cabinet.goal, rect.w, rect.h);
-          for (const point of cabinet.path) includeRect(bounds, point.x, point.y, rect.w, rect.h);
-          return { ...rect, final, cabinet };
-        });
+          const bounds = { minX: room.minX, minY: room.minY, maxX: room.maxX, maxY: room.maxY };
+          const selectedCabinets = new Set(solution.map((placement) => placement.cabinet.id));
+          const selected = solution.map((placement) => {
+            const final = {
+              x: placement.x + placement.w / 2 - dimensions.length / 2,
+              y: placement.y + placement.h / 2 - dimensions.width / 2,
+            };
+            placement.cabinet.selected = true;
+            placement.cabinet.goal = final;
+            for (const point of [placement.cabinet.current, final]) includeRect(bounds, point.x, point.y, placement.w, placement.h);
+            return { ...placement, final };
+          });
 
-        const wallCursors = {
-          left: { x: room.minX + 0.25, y: room.minY + 0.6, column: 0 },
-          right: { x: room.maxX - 0.25, y: room.minY + 0.6, column: 0 },
-        };
-        available.forEach((cabinet, index) => {
-          const side = index % 2 === 0 ? 'left' : 'right';
-          const cursor = wallCursors[side];
-          if (cursor.y + cabinet.h > room.maxY - 0.5) {
-            cursor.y = room.minY + 0.6;
-            cursor.column += 1;
+          assignWallGoals(cabinetPool, selectedCabinets);
+          prepareSafeDemoStarts(solution, selectedCabinets, dimensions);
+          for (const cabinet of cabinetPool) {
+            if (selectedCabinets.has(cabinet.id)) continue;
+            includeRect(bounds, cabinet.current.x, cabinet.current.y, cabinet.w, cabinet.h);
+            includeRect(bounds, cabinet.goal.x, cabinet.goal.y, cabinet.w, cabinet.h);
           }
-          const goalX = side === 'left'
-            ? cursor.x + cabinet.w / 2 + cursor.column * 0.75
-            : cursor.x - cabinet.w / 2 - cursor.column * 0.75;
-          const goalY = cursor.y + cabinet.h / 2;
-          cursor.y += cabinet.h + 0.28;
-          cabinet.selected = false;
-          cabinet.goal = { x: goalX, y: goalY };
-          cabinet.goalW = cabinet.w;
-          cabinet.goalH = cabinet.h;
-          cabinet.path = pathAroundPerson(cabinet.current, cabinet.goal, cabinet.w, cabinet.h);
-          for (const point of cabinet.path) includeRect(bounds, point.x, point.y, cabinet.w, cabinet.h);
-        });
 
-        includeRect(bounds, person.x, person.y, person.radius * 2.4, person.radius * 2.4);
-        bounds.minX -= 1.2;
-        bounds.maxX += 1.2;
-        bounds.minY -= 1.4;
-        bounds.maxY += 2.2;
-        return { dimensions: nextDimensions, selected, cabinets: cabinetPool, person, bounds };
+          for (const cabinet of cabinetPool) {
+            cabinet.collisionBody = { w: cabinet.w, h: cabinet.h, padding: 0 };
+          }
+
+          if (!assignSafePaths(cabinetPool)) continue;
+          for (const cabinet of cabinetPool) {
+            for (const point of cabinet.path) includeRect(bounds, point.x, point.y, cabinet.w, cabinet.h);
+          }
+          includeRect(bounds, person.x, person.y, person.radius * 2.4, person.radius * 2.4);
+          bounds.minX -= 1.2;
+          bounds.maxX += 1.2;
+          bounds.minY -= 1.4;
+          bounds.maxY += 2.2;
+          return { dimensions, selected, cabinets: cabinetPool, person, bounds, safe: true };
+        }
+
+        if (!stagedRetry) {
+          for (const cabinet of cabinetPool) {
+            cabinet.current = { ...cabinet.goal };
+            cabinet.path = [{ ...cabinet.goal }];
+            cabinet.delay = 0;
+            cabinet.duration = 1;
+          }
+          return buildPlan({ length: 4, width: 3 }, true);
+        }
+
+        return { dimensions: { length: 0, width: 0 }, selected: [], cabinets: cabinetPool, person, bounds: { minX: room.minX, minY: room.minY, maxX: room.maxX, maxY: room.maxY }, safe: false };
       }
 
       function beginCycle(time) {
@@ -2055,8 +2340,6 @@ for p in plan.placements:
         ctx.fillStyle = 'rgba(30, 107, 74, 0.94)';
         ctx.font = '700 13px Inter, Arial, sans-serif';
         ctx.fillText(`Front platform: ${plan.dimensions.length}m x ${plan.dimensions.width}m`, target.x, Math.max(92, target.y - 12));
-        ctx.fillStyle = 'rgba(92, 74, 60, 0.74)';
-        ctx.fillText(phase === 'plan' ? 'SpatialOS plan: exact tiling + reserved approach lanes' : 'All selected cabinets move in parallel', target.x, target.y + target.height + 20);
       }
 
       function drawPerson(layout) {
@@ -2097,8 +2380,8 @@ for p in plan.placements:
       }
 
       function drawModule(module, position, layout, progress) {
-        const width = module.goalW + (module.w - module.goalW) * (1 - progress);
-        const height = module.goalH + (module.h - module.goalH) * (1 - progress);
+        const width = module.w;
+        const height = module.h;
         const rect = drawWorldRect(
           position.x,
           position.y,
@@ -2109,13 +2392,14 @@ for p in plan.placements:
           module.selected && progress >= 0.99 ? 'rgba(30, 107, 74, 0.72)' : 'rgba(21, 24, 21, 0.3)',
           module.selected && progress >= 0.99 ? 2 : 1
         );
+        drawWorldRect(position.x, position.y, width + 0.16, height + 0.16, layout, null, 'rgba(163, 93, 69, 0.45)', 1);
 
         if (rect.width >= 42 && rect.height >= 28) {
           ctx.fillStyle = 'rgba(21, 24, 21, 0.76)';
           ctx.font = '700 11px Inter, Arial, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(`${module.goalW}x${module.goalH}`, rect.x + rect.width / 2, rect.y + rect.height / 2);
+          ctx.fillText(`${module.w}x${module.h}`, rect.x + rect.width / 2, rect.y + rect.height / 2);
           ctx.textAlign = 'start';
           ctx.textBaseline = 'alphabetic';
         }
@@ -2158,13 +2442,13 @@ for p in plan.placements:
         drawPerson(layout);
 
         for (const cabinet of plan.cabinets) {
-          const position = pointOnPath(cabinet.path, moveProgress);
+          const position = motionPoint(cabinet, moveProgress);
           drawModule(cabinet, position, layout, moveProgress);
         }
 
         if (label) {
           const phaseLabel = phase === 'command' ? 'human command' : phase === 'plan' ? 'plan proposed' : phase === 'move' ? 'parallel move' : 'flush lock';
-          label.textContent = `Command: ${plan.dimensions.length}m x ${plan.dimensions.width}m ahead | ${plan.selected.length} selected + ${plan.cabinets.length - plan.selected.length} wall | ${phaseLabel}`;
+          label.textContent = `Command: ${plan.dimensions.length}m x ${plan.dimensions.width}m ahead | ${plan.selected.length} selected + ${plan.cabinets.length - plan.selected.length} wall | ${phaseLabel} | safe plan + collision volumes`;
         }
         requestAnimationFrame(draw2d);
       }
@@ -2187,9 +2471,25 @@ for p in plan.placements:
       const planMs = 1250;
       const moveMs = 4200;
       const holdMs = 1700;
-      const cabinetCount = 24;
-      const room = { minX: centerX - 8.2, maxX: centerX + 8.2, minZ: -6.1, maxZ: 8.9 };
-      const person = { x: centerX, z: 7.15, radius: 0.62 };
+      const room = { minX: centerX - 14, maxX: centerX + 14, minZ: -8, maxZ: 10 };
+      const person = { x: centerX, z: 8.25, radius: 0.62 };
+      const collisionSamples = 72;
+      const cabinetSizes = [
+        { w: 5, h: 2 }, { w: 5, h: 2 }, { w: 5, h: 2 },
+        { w: 4, h: 2 }, { w: 4, h: 2 }, { w: 4, h: 2 },
+        { w: 3, h: 2 }, { w: 3, h: 2 }, { w: 3, h: 2 },
+        { w: 2, h: 2 }, { w: 2, h: 2 }, { w: 2, h: 2 },
+        { w: 5, h: 1 }, { w: 5, h: 1 }, { w: 4, h: 1 }, { w: 4, h: 1 },
+        { w: 2, h: 1 }, { w: 2, h: 1 }, { w: 1, h: 2 }, { w: 1, h: 2 },
+        { w: 1, h: 1 }, { w: 1, h: 1 },
+      ];
+      const dimensionOptions = [
+        { length: 10, width: 2 }, { length: 8, width: 2 }, { length: 5, width: 3 },
+        { length: 5, width: 2 }, { length: 4, width: 3 }, { length: 4, width: 2 },
+        { length: 3, width: 2 }, { length: 2, width: 2 }, { length: 5, width: 1 },
+        { length: 4, width: 1 }, { length: 2, width: 1 }, { length: 1, width: 2 },
+      ];
+      const cabinetCount = cabinetSizes.length;
 
       const ambient = new THREE.HemisphereLight(0xf7f4ec, 0x242822, 2.4);
       scene.add(ambient);
@@ -2260,15 +2560,11 @@ for p in plan.placements:
       function randomDimensions(previous) {
         let next;
         do {
-          next = {
-            length: Math.floor(Math.random() * 10) + 1,
-            width: Math.floor(Math.random() * 10) + 1,
-          };
+          next = dimensionOptions[Math.floor(Math.random() * dimensionOptions.length)];
         } while (
-          next.length * next.width < 6 ||
           (previous && next.length === previous.length && next.width === previous.width)
         );
-        return next;
+        return { ...next };
       }
 
       function splitRect(rect, out, depth = 0) {
@@ -2340,7 +2636,8 @@ for p in plan.placements:
             h,
           };
           const nearCenter = Math.abs(candidate.x - centerX) < 2 && Math.abs(candidate.z) < 1.4;
-          if (nearCenter || !rectClearsPersonXZ(candidate, 0.45)) continue;
+          const reservedPlatformZone = Math.abs(candidate.x - centerX) < 5.6 && candidate.z > -4.2 && candidate.z < 4.2;
+          if (nearCenter || reservedPlatformZone || !rectClearsPersonXZ(candidate, 0.45)) continue;
           if (placed.every((other) => !rectsOverlapXZ(candidate, other, 0.15))) return candidate;
         }
         return { x: room.minX + w / 2 + 0.4, z: room.minZ + h / 2 + placed.length * 0.42, w, h };
@@ -2348,8 +2645,8 @@ for p in plan.placements:
 
       function createCabinetPool() {
         const placed = [];
-        return Array.from({ length: cabinetCount }, (_, index) => {
-          const size = randomCabinetSize();
+        const sizes = [...cabinetSizes].sort(() => Math.random() - 0.5);
+        return sizes.map((size, index) => {
           const position = randomMessyPosition(size.w, size.h, placed);
           placed.push(position);
           return {
@@ -2358,9 +2655,10 @@ for p in plan.placements:
             h: size.h,
             current: new THREE.Vector3(position.x, 0.36, position.z),
             goal: new THREE.Vector3(position.x, 0.36, position.z),
-            goalW: size.w,
-            goalH: size.h,
             selected: false,
+            collisionBody: { w: size.w, h: size.h, padding: 0 },
+            delay: 0,
+            duration: 1,
             path: [new THREE.Vector3(position.x, 0.36, position.z)],
           };
         });
@@ -2410,63 +2708,309 @@ for p in plan.placements:
         return path[path.length - 1];
       }
 
-      function buildPlan(nextDimensions) {
+      function bodyAtXZ(cabinet, position, padding = 0) {
+        const body = cabinet.collisionBody || { w: cabinet.w, h: cabinet.h, padding: 0 };
+        const bodyPadding = padding + (body.padding || 0);
+        return {
+          x: position.x,
+          z: position.z,
+          w: body.w + bodyPadding * 2,
+          h: body.h + bodyPadding * 2,
+        };
+      }
+
+      function bodyHitsPersonXZ(body, pad = 0.08) {
+        const nearestX = clamp(person.x, body.x - body.w / 2 - pad, body.x + body.w / 2 + pad);
+        const nearestZ = clamp(person.z, body.z - body.h / 2 - pad, body.z + body.h / 2 + pad);
+        return Math.hypot(person.x - nearestX, person.z - nearestZ) < person.radius + pad;
+      }
+
+      function pathClearsPersonXZ(path, cabinet) {
+        for (let i = 1; i < path.length; i += 1) {
+          const clearance = person.radius + Math.max(cabinet.w, cabinet.h) * 0.55 + 0.16;
+          if (pointToSegmentDistanceXZ(person, path[i - 1], path[i]) < clearance) return false;
+        }
+        for (let i = 0; i <= collisionSamples; i += 1) {
+          if (bodyHitsPersonXZ(bodyAtXZ(cabinet, pointOnPath3D(path, i / collisionSamples)))) return false;
+        }
+        return true;
+      }
+
+      function candidatePathsXZ(cabinet, orderIndex) {
+        const start = cabinet.current;
+        const goal = cabinet.goal;
+        const laneInset = 0.55 + (orderIndex % 14) * 0.48;
+        const leftX = room.minX + cabinet.w / 2 + laneInset;
+        const rightX = room.maxX - cabinet.w / 2 - laneInset;
+        const bottomZ = room.minZ + cabinet.h / 2 + laneInset;
+        const topZ = room.maxZ - cabinet.h / 2 - laneInset;
+        const options = [
+          [start, goal],
+          [start, new THREE.Vector3(start.x, 0.36, bottomZ), new THREE.Vector3(goal.x, 0.36, bottomZ), goal],
+          [start, new THREE.Vector3(start.x, 0.36, topZ), new THREE.Vector3(goal.x, 0.36, topZ), goal],
+          [start, new THREE.Vector3(leftX, 0.36, start.z), new THREE.Vector3(leftX, 0.36, goal.z), goal],
+          [start, new THREE.Vector3(rightX, 0.36, start.z), new THREE.Vector3(rightX, 0.36, goal.z), goal],
+          pathAroundPersonXZ(start, goal, cabinet.w, cabinet.h),
+        ];
+        return options
+          .map((path) => path.map((point) => new THREE.Vector3(
+            clamp(point.x, room.minX + cabinet.w / 2, room.maxX - cabinet.w / 2),
+            0.36,
+            clamp(point.z, room.minZ + cabinet.h / 2, room.maxZ - cabinet.h / 2)
+          )))
+          .filter((path) => pathClearsPersonXZ(path, cabinet));
+      }
+
+      function pathConflictsXZ(candidate, cabinet, planned) {
+        for (let i = 0; i <= collisionSamples; i += 1) {
+          const progress = i / collisionSamples;
+          const body = bodyAtXZ(cabinet, motionPoint3D(cabinet, progress, candidate));
+          if (bodyHitsPersonXZ(body)) return true;
+          for (const other of planned) {
+            const otherBody = bodyAtXZ(other, motionPoint3D(other, progress));
+            if (rectsOverlapXZ(body, otherBody, 0)) return true;
+          }
+        }
+        return false;
+      }
+
+      function motionPoint3D(cabinet, progress, pathOverride = null) {
+        const localProgress = clamp((progress - cabinet.delay) / cabinet.duration, 0, 1);
+        return pointOnPath3D(pathOverride || cabinet.path, localProgress);
+      }
+
+      function validateSafeMotionXZ(cabinets) {
+        return findMotionConflictXZ(cabinets) === null;
+      }
+
+      function findMotionConflictXZ(cabinets) {
+        for (let i = 0; i <= collisionSamples; i += 1) {
+          const progress = i / collisionSamples;
+          for (let a = 0; a < cabinets.length; a += 1) {
+            const bodyA = bodyAtXZ(cabinets[a], motionPoint3D(cabinets[a], progress));
+            if (bodyHitsPersonXZ(bodyA)) return { a: cabinets[a], b: null };
+            for (let b = a + 1; b < cabinets.length; b += 1) {
+              const bodyB = bodyAtXZ(cabinets[b], motionPoint3D(cabinets[b], progress));
+              if (rectsOverlapXZ(bodyA, bodyB, 0)) return { a: cabinets[a], b: cabinets[b] };
+            }
+          }
+        }
+        return null;
+      }
+
+      function repairSafeMotionXZ(cabinets) {
+        for (let attempt = 0; attempt < 160; attempt += 1) {
+          const conflict = findMotionConflictXZ(cabinets);
+          if (!conflict) return true;
+          const target = !conflict.b || conflict.a.delay <= conflict.b.delay ? conflict.a : conflict.b;
+          const maxDelay = 1 - target.duration;
+          if (target.delay < maxDelay - 0.001) {
+            target.delay = Math.min(maxDelay, target.delay + 0.02);
+          } else if (target.duration > 0.12) {
+            target.duration = Math.max(0.12, target.duration - 0.01);
+            target.delay = Math.min(1 - target.duration, target.delay);
+          } else {
+            return false;
+          }
+        }
+        return validateSafeMotionXZ(cabinets);
+      }
+
+      function assignSafePathsXZ(cabinets) {
+        const moving = [...cabinets].sort((a, b) => {
+          const aClearsPlatform = !a.selected && Math.abs(a.current.x - centerX) < 5.8 && a.current.z > -4.4 && a.current.z < 4.4;
+          const bClearsPlatform = !b.selected && Math.abs(b.current.x - centerX) < 5.8 && b.current.z > -4.4 && b.current.z < 4.4;
+          return Number(bClearsPlatform) - Number(aClearsPlatform)
+            || Number(b.selected) - Number(a.selected)
+            || b.current.distanceTo(b.goal) - a.current.distanceTo(a.goal);
+        });
+        const planned = [];
+        for (const cabinet of moving) {
+          const options = candidatePathsXZ(cabinet, cabinet.id + planned.length);
+          let chosen = null;
+          cabinet.duration = 0.2;
+          for (let delayIndex = 0; delayIndex <= 40 && !chosen; delayIndex += 1) {
+            cabinet.delay = delayIndex * 0.02;
+            for (const candidate of options) {
+              if (!pathConflictsXZ(candidate, cabinet, planned)) {
+                chosen = candidate;
+                break;
+              }
+            }
+          }
+          if (!chosen) return false;
+          cabinet.path = chosen;
+          planned.push(cabinet);
+        }
+        return repairSafeMotionXZ(cabinets);
+      }
+
+      function assignWallGoalsXZ(cabinets, selectedCabinets) {
+        const wallGap = 0.32;
+        const wallMargin = 0.55;
+        const states = {
+          left: { nextX: room.minX + wallMargin, columns: [] },
+          right: { nextX: room.maxX - wallMargin, columns: [] },
+        };
+
+        function placeInColumn(cabinet, side) {
+          const state = states[side];
+          let column = state.columns[state.columns.length - 1];
+          if (!column || column.z + cabinet.h > room.maxZ - wallMargin) {
+            const x = side === 'left' ? state.nextX + cabinet.w / 2 : state.nextX - cabinet.w / 2;
+            column = { x, z: room.minZ + wallMargin, width: cabinet.w };
+            state.columns.push(column);
+            state.nextX += side === 'left' ? cabinet.w + wallGap : -(cabinet.w + wallGap);
+          }
+          const goal = new THREE.Vector3(column.x, 0.36, column.z + cabinet.h / 2);
+          column.z += cabinet.h + wallGap;
+          return goal;
+        }
+
+        cabinets
+          .filter((cabinet) => !selectedCabinets.has(cabinet.id))
+          .sort((a, b) => (b.w - a.w) || (b.h - a.h) || (a.id - b.id))
+          .forEach((cabinet, index) => {
+            const side = index % 2 === 0 ? 'left' : 'right';
+            cabinet.selected = false;
+            cabinet.goal = placeInColumn(cabinet, side);
+          });
+      }
+
+      function prepareSafeDemoStartsXZ(solution, selectedCabinets, dimensions) {
+        for (const placement of solution) {
+          const cabinet = placement.cabinet;
+          const final = cabinet.goal;
+          const fromTop = final.z >= 0;
+          const outsideZ = fromTop
+            ? dimensions.width / 2 + cabinet.h / 2 + 2.2
+            : -dimensions.width / 2 - cabinet.h / 2 - 2.2;
+          cabinet.current = new THREE.Vector3(
+            final.x,
+            0.36,
+            clamp(outsideZ, room.minZ + cabinet.h / 2 + 0.7, room.maxZ - cabinet.h / 2 - 0.7)
+          );
+        }
+
+        for (const cabinet of cabinetPool) {
+          if (selectedCabinets.has(cabinet.id)) continue;
+          const inward = cabinet.goal.x < centerX ? 1.35 : -1.35;
+          cabinet.current = new THREE.Vector3(
+            clamp(cabinet.goal.x + inward, room.minX + cabinet.w / 2, room.maxX - cabinet.w / 2),
+            0.36,
+            cabinet.goal.z
+          );
+        }
+      }
+
+      function solveExactTiling(dimensions, cabinets) {
+        const width = dimensions.length;
+        const height = dimensions.width;
+        const fullMask = (1 << width) - 1;
+        const rows = Array(height).fill(0);
+        const used = new Set();
+        const placements = [];
+        let nodes = 0;
+        const candidates = cabinets
+          .filter((cabinet) => cabinet.w <= width && cabinet.h <= height)
+          .sort((a, b) => (b.w * b.h - a.w * a.h) || b.w - a.w || a.id - b.id);
+
+        function firstEmpty() {
+          for (let y = 0; y < height; y += 1) {
+            if (rows[y] !== fullMask) {
+              for (let x = 0; x < width; x += 1) {
+                if ((rows[y] & (1 << x)) === 0) return { x, y };
+              }
+            }
+          }
+          return null;
+        }
+
+        function canPlace(x, y, w, h) {
+          if (x + w > width || y + h > height) return false;
+          const mask = ((1 << w) - 1) << x;
+          for (let row = y; row < y + h; row += 1) {
+            if (rows[row] & mask) return false;
+          }
+          return true;
+        }
+
+        function setPlace(x, y, w, h, on) {
+          const mask = ((1 << w) - 1) << x;
+          for (let row = y; row < y + h; row += 1) {
+            rows[row] = on ? rows[row] | mask : rows[row] & ~mask;
+          }
+        }
+
+        function search() {
+          nodes += 1;
+          if (nodes > 6000) return false;
+          const empty = firstEmpty();
+          if (!empty) return true;
+          for (const cabinet of candidates) {
+            if (used.has(cabinet.id)) continue;
+            if (!canPlace(empty.x, empty.y, cabinet.w, cabinet.h)) continue;
+            used.add(cabinet.id);
+            setPlace(empty.x, empty.y, cabinet.w, cabinet.h, true);
+            placements.push({ cabinet, x: empty.x, y: empty.y, w: cabinet.w, h: cabinet.h });
+            if (search()) return true;
+            placements.pop();
+            setPlace(empty.x, empty.y, cabinet.w, cabinet.h, false);
+            used.delete(cabinet.id);
+          }
+          return false;
+        }
+
+        return search() ? placements.map((placement) => ({ ...placement })) : null;
+      }
+
+      function buildPlan(nextDimensions, stagedRetry = false) {
         if (!cabinetPool) cabinetPool = createCabinetPool();
         if (plan) {
           for (const cabinet of cabinetPool) {
             cabinet.current = cabinet.goal.clone();
-            cabinet.w = cabinet.goalW;
-            cabinet.h = cabinet.goalH;
           }
         }
 
-        const rectangles = [];
-        splitRect({ x: 0, y: 0, w: nextDimensions.length, h: nextDimensions.width }, rectangles);
-        rectangles.sort((a, b) => (a.y - b.y) || (a.x - b.x) || (b.w * b.h - a.w * a.h));
-        const available = [...cabinetPool];
-        const selected = rectangles.map((rect) => {
-          const final = new THREE.Vector3(
-            centerX + rect.x + rect.w / 2 - nextDimensions.length / 2,
-            0.36,
-            rect.y + rect.h / 2 - nextDimensions.width / 2
-          );
-          const chosenIndex = available.reduce((best, candidate, index) => {
-            const score = candidate.current.distanceTo(final) + Math.abs(candidate.w * candidate.h - rect.w * rect.h) * 0.35;
-            return score < best.score ? { index, score } : best;
-          }, { index: 0, score: Infinity }).index;
-          const cabinet = available.splice(chosenIndex, 1)[0];
-          cabinet.selected = true;
-          cabinet.goal = final;
-          cabinet.goalW = rect.w;
-          cabinet.goalH = rect.h;
-          cabinet.path = pathAroundPersonXZ(cabinet.current, cabinet.goal, rect.w, rect.h);
-          return { ...rect, cabinet };
-        });
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          const dimensions = attempt === 3 ? { length: 4, width: 3 } : (attempt === 0 ? nextDimensions : randomDimensions(nextDimensions));
+          const solution = solveExactTiling(dimensions, cabinetPool);
+          if (!solution) continue;
 
-        const wallCursors = {
-          left: { x: room.minX + 0.25, z: room.minZ + 0.6, column: 0 },
-          right: { x: room.maxX - 0.25, z: room.minZ + 0.6, column: 0 },
-        };
-        available.forEach((cabinet, index) => {
-          const side = index % 2 === 0 ? 'left' : 'right';
-          const cursor = wallCursors[side];
-          if (cursor.z + cabinet.h > room.maxZ - 0.5) {
-            cursor.z = room.minZ + 0.6;
-            cursor.column += 1;
+          const selectedCabinets = new Set(solution.map((placement) => placement.cabinet.id));
+          const selected = solution.map((placement) => {
+            const final = new THREE.Vector3(
+              centerX + placement.x + placement.w / 2 - dimensions.length / 2,
+              0.36,
+              placement.y + placement.h / 2 - dimensions.width / 2
+            );
+            placement.cabinet.selected = true;
+            placement.cabinet.goal = final;
+            return { ...placement, final, cabinet: placement.cabinet };
+          });
+
+          assignWallGoalsXZ(cabinetPool, selectedCabinets);
+          prepareSafeDemoStartsXZ(solution, selectedCabinets, dimensions);
+
+          for (const cabinet of cabinetPool) {
+            cabinet.collisionBody = { w: cabinet.w, h: cabinet.h, padding: 0 };
           }
-          const goalX = side === 'left'
-            ? cursor.x + cabinet.w / 2 + cursor.column * 0.75
-            : cursor.x - cabinet.w / 2 - cursor.column * 0.75;
-          const goalZ = cursor.z + cabinet.h / 2;
-          cursor.z += cabinet.h + 0.28;
-          cabinet.selected = false;
-          cabinet.goal = new THREE.Vector3(goalX, 0.36, goalZ);
-          cabinet.goalW = cabinet.w;
-          cabinet.goalH = cabinet.h;
-          cabinet.path = pathAroundPersonXZ(cabinet.current, cabinet.goal, cabinet.w, cabinet.h);
-        });
 
-        return { dimensions: nextDimensions, selected, cabinets: cabinetPool };
+          if (!assignSafePathsXZ(cabinetPool)) continue;
+          return { dimensions, selected, cabinets: cabinetPool, safe: true };
+        }
+
+        if (!stagedRetry) {
+          for (const cabinet of cabinetPool) {
+            cabinet.current = cabinet.goal.clone();
+            cabinet.path = [cabinet.goal.clone()];
+            cabinet.delay = 0;
+            cabinet.duration = 1;
+          }
+          return buildPlan({ length: 4, width: 3 }, true);
+        }
+
+        return { dimensions: { length: 0, width: 0 }, selected: [], cabinets: cabinetPool, safe: false };
       }
 
       function disposeObject(object) {
@@ -2523,7 +3067,7 @@ for p in plan.placements:
         personGroup.position.set(person.x, 0, person.z);
         cycleStart = time;
         if (target3dLabel) {
-          target3dLabel.textContent = `Command: ${plan.dimensions.length}m x ${plan.dimensions.width}m ahead | ${plan.selected.length} selected + ${plan.cabinets.length - plan.selected.length} wall | plan proposed`;
+          target3dLabel.textContent = `Command: ${plan.dimensions.length}m x ${plan.dimensions.width}m ahead | ${plan.selected.length} selected + ${plan.cabinets.length - plan.selected.length} wall | safe parallel plan`;
         }
       }
 
@@ -2535,7 +3079,7 @@ for p in plan.placements:
         camera.aspect = width / height;
         camera.fov = width < 700 ? 58 : 42;
         const span = Math.max(room.maxX - room.minX, room.maxZ - room.minZ);
-        camera.position.set(centerX + span * 0.48, 7.2, span * 0.58);
+        camera.position.set(centerX + span * 0.46, span * 0.36, span * 0.58);
         camera.lookAt(centerX, 0.36, 1.2);
         camera.updateProjectionMatrix();
       }
@@ -2556,19 +3100,15 @@ for p in plan.placements:
         modules.forEach((mesh) => {
           const cabinet = mesh.userData.cabinet;
           mesh.visible = true;
-          mesh.position.copy(pointOnPath3D(cabinet.path, moveProgress));
-          mesh.scale.set(
-            cabinet.w + (cabinet.goalW - cabinet.w) * moveProgress,
-            1,
-            cabinet.h + (cabinet.goalH - cabinet.h) * moveProgress
-          );
+          mesh.position.copy(motionPoint3D(cabinet, moveProgress));
+          mesh.scale.set(cabinet.w, 1, cabinet.h);
           mesh.rotation.y = 0;
           mesh.material.emissive.setHex(cabinet.selected && moveProgress > 0.98 ? 0x12391e : 0x000000);
           mesh.material.emissiveIntensity = moveProgress > 0.98 ? 0.08 : 0;
         });
 
         if (target3dLabel) {
-          target3dLabel.textContent = `Command: ${plan.dimensions.length}m x ${plan.dimensions.width}m ahead | ${plan.selected.length} selected + ${plan.cabinets.length - plan.selected.length} wall | ${phaseLabel}`;
+          target3dLabel.textContent = `Command: ${plan.dimensions.length}m x ${plan.dimensions.width}m ahead | ${plan.selected.length} selected + ${plan.cabinets.length - plan.selected.length} wall | ${phaseLabel} | collision volumes active`;
         }
 
         target.material.opacity = moveProgress >= 1 ? 0.38 : 0.2 + 0.14 * moveProgress;
