@@ -8,7 +8,7 @@
 - `rectangle`：占用的桌面矩形；
 - `direction`：最终朝向。
 
-本版只解决“最终排列”问题，不输出完整机器人路径。移动路径、空间预约、避障、互锁和交通调度应进入下一层 motion planner。展示动画采用 parallel reserved lanes：所有被选中的柜式机器人从房间不同位置同时移动；每个机器人沿自己的预约通道向最终 footprint 收敛，因此移动中不重叠、不碰撞；真实硬件仍需由 Nav2/BT/reservation table 做路径验证。
+本版只解决“最终排列”问题，不输出完整机器人路径。移动路径、空间预约、避障、互锁和交通调度应进入下一层 motion planner。展示动画采用 parallel reserved lanes：柜式机器人先凌乱分布在房间各处；收到新指令后，被选中的柜子沿预约通道同时向最终 footprint 收敛，多余柜子自动去墙边排列；人的碰撞体积作为禁入区，路径会绕开人体安全圈。真实硬件仍需由 Nav2/BT/reservation table 做路径验证。
 
 ## 2. Rush Hour 论文对本问题的启发
 
