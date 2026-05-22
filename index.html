@@ -806,8 +806,10 @@
       display: flex;
       min-width: 0;
       flex-direction: column;
-      justify-content: center;
+      justify-content: flex-start;
       gap: 14px;
+      overflow-y: auto;
+      padding-right: 2px;
     }
 
     .transform-copy .lead {
@@ -892,7 +894,7 @@
     .mode-segment {
       grid-column: 1 / -1;
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 6px;
       padding: 4px;
       border: 1px solid rgba(21, 24, 21, .12);
@@ -922,6 +924,138 @@
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 9px;
+    }
+
+    .teaching-panel {
+      display: grid;
+      gap: 9px;
+      padding: 11px;
+      border: 1px solid rgba(21, 24, 21, .12);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 250, .86);
+      box-shadow: 0 12px 30px rgba(21, 24, 21, .06);
+    }
+
+    .teaching-panel header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .teaching-title {
+      color: var(--graphite);
+      font-size: 12px;
+      font-weight: 860;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+    }
+
+    .teaching-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 4px 7px;
+      border: 1px solid rgba(30, 107, 74, .24);
+      border-radius: 5px;
+      background: rgba(30, 107, 74, .08);
+      color: var(--green);
+      font-size: 11px;
+      font-weight: 820;
+    }
+
+    .phase-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 5px;
+    }
+
+    .phase-step {
+      min-height: 42px;
+      padding: 6px 7px;
+      border: 1px solid rgba(21, 24, 21, .12);
+      border-radius: 6px;
+      background: rgba(21, 24, 21, .035);
+      color: rgba(21, 24, 21, .58);
+      font-size: 10px;
+      font-weight: 760;
+      line-height: 1.22;
+    }
+
+    .phase-step.active {
+      border-color: rgba(30, 107, 74, .38);
+      background: rgba(30, 107, 74, .1);
+      color: var(--graphite);
+    }
+
+    .phase-explainer {
+      display: grid;
+      gap: 4px;
+      padding: 8px 9px;
+      border-left: 3px solid var(--green);
+      background: rgba(30, 107, 74, .06);
+      color: var(--graphite);
+      font-size: 12px;
+      font-weight: 760;
+      line-height: 1.38;
+    }
+
+    .phase-explainer span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 720;
+    }
+
+    .part-ledger {
+      max-height: 118px;
+      overflow: auto;
+      display: grid;
+      gap: 5px;
+      padding-right: 2px;
+    }
+
+    .part-row {
+      display: grid;
+      grid-template-columns: minmax(78px, .8fr) minmax(0, 1.2fr);
+      gap: 7px;
+      padding: 6px 7px;
+      border: 1px solid rgba(21, 24, 21, .09);
+      border-radius: 5px;
+      background: rgba(255, 253, 250, .74);
+      color: var(--muted);
+      font-size: 10.5px;
+      line-height: 1.26;
+    }
+
+    .part-row strong {
+      color: var(--graphite);
+      font-weight: 840;
+      overflow-wrap: anywhere;
+    }
+
+    .part-row.active {
+      border-color: rgba(30, 107, 74, .34);
+      background: rgba(30, 107, 74, .08);
+    }
+
+    .safety-ledger {
+      display: grid;
+      gap: 4px;
+      padding: 8px 9px;
+      border: 1px solid rgba(30, 107, 74, .18);
+      border-radius: 6px;
+      background: rgba(30, 107, 74, .055);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 730;
+      line-height: 1.32;
+    }
+
+    .safety-ledger.risk {
+      border-color: rgba(163, 93, 69, .34);
+      background: rgba(163, 93, 69, .08);
+      color: #7a3629;
     }
 
     .reference-card {
@@ -1375,7 +1509,9 @@
       }
 
       .reference-grid,
-      .mode-segment {
+      .mode-segment,
+      .phase-strip,
+      .part-row {
         grid-template-columns: minmax(0, 1fr);
       }
 
@@ -3598,10 +3734,10 @@ for p in plan.placements:
     const MIN_SIZE = 0.6;
     const MAX_SIZE = 1.2;
     const STEP = 0.1;
-    const commandMs = 850;
-    const analysisMs = 900;
-    const transformMs = 2500;
-    const holdMs = 1800;
+    const commandMs = 900;
+    const analysisMs = 1200;
+    const transformMs = 4200;
+    const holdMs = 2300;
     const totalMs = commandMs + analysisMs + transformMs + holdMs;
     const colors = ['#fffef8', '#dfe7e1', '#ead9bd', '#dce4e5', '#f1e5ba', '#d9d7ce', '#e7efe4', '#ded8cb', '#f5efe2'];
     const mechanismNames = {
@@ -3774,7 +3910,7 @@ for p in plan.placements:
       geometric: [
         { id: 'shell-unlock', label: 'Shell unlock', start: 0, end: .16 },
         { id: 'rail-slide', label: 'Quadrant slide', start: .16, end: .62 },
-        { id: 'filler-rise', label: 'Filler panels rise', start: .52, end: .82 },
+        { id: 'filler-rise', label: 'Filler panels rise', start: .62, end: .82 },
         { id: 'lock', label: 'Perimeter lock', start: .82, end: 1 },
       ],
       butterfly: [
@@ -5777,6 +5913,8 @@ for p in plan.placements:
         this.mechanism = section.dataset.transformMechanism;
         this.canvas2d = section.querySelector('canvas[data-view="2d"]');
         this.canvas3d = section.querySelector('canvas[data-view="3d"]');
+        this.viewLabel2d = this.canvas2d?.parentElement?.querySelector('.view-label');
+        this.viewLabel3d = this.canvas3d?.parentElement?.querySelector('.view-label');
         this.ctx = this.canvas2d.getContext('2d');
         this.status = section.querySelector('[data-transform-status]');
         this.lengthInput = section.querySelector('[data-length-input]');
@@ -5784,8 +5922,9 @@ for p in plan.placements:
         this.pauseButton = section.querySelector('[data-pause-toggle]');
         this.controls = section.querySelector('[data-transform-controls]');
         this.reference = MechanismReferenceCatalog[this.mechanism];
-        this.mode = 'transform';
+        this.mode = 'principle';
         this.paused = false;
+        this.slowMotion = false;
         this.elapsed = 0;
         this.lastTime = performance.now();
         this.collisionUnsafe = false;
@@ -5799,6 +5938,7 @@ for p in plan.placements:
         this.dimensions = nearestRigidPreset(this.mechanism, this.requestedDimensions);
         this.renderModeControls();
         this.renderReferences();
+        this.renderTeachingPanel();
         this.setup3d();
         this.bindControls(section);
         this.startCommand(this.requestedDimensions, true);
@@ -5808,12 +5948,23 @@ for p in plan.placements:
         if (!this.controls || !this.status) return;
         const segment = document.createElement('div');
         segment.className = 'mode-segment';
-        segment.setAttribute('aria-label', 'Transform view mode');
-        segment.innerHTML = ['transform', 'exploded', 'collision'].map((mode) => (
-          `<button type="button" data-transform-mode="${mode}" class="${mode === this.mode ? 'active' : ''}">${mode}</button>`
+        segment.setAttribute('aria-label', 'Teaching view mode');
+        const labels = {
+          engineering: 'Engineering',
+          linework: 'Linework',
+          principle: 'Principle',
+          animation: 'Animation',
+        };
+        segment.innerHTML = Object.keys(labels).map((mode) => (
+          `<button type="button" data-transform-mode="${mode}" class="${mode === this.mode ? 'active' : ''}">${labels[mode]}</button>`
         )).join('');
         this.status.before(segment);
         this.modeButtons = Array.from(segment.querySelectorAll('[data-transform-mode]'));
+        this.slowButton = document.createElement('button');
+        this.slowButton.type = 'button';
+        this.slowButton.className = 'transform-button';
+        this.slowButton.textContent = 'Slow motion';
+        this.status.before(this.slowButton);
       }
 
       renderReferences() {
@@ -5847,6 +5998,32 @@ for p in plan.placements:
         this.controls.after(referenceGrid);
       }
 
+      renderTeachingPanel() {
+        if (!this.controls) return;
+        const panel = document.createElement('div');
+        panel.className = 'teaching-panel';
+        panel.innerHTML = `
+          <header>
+            <span class="teaching-title">Mechanical Assembly Teaching</span>
+            <span class="teaching-badge" data-teaching-mode>principle</span>
+          </header>
+          <div class="phase-strip" data-phase-strip></div>
+          <div class="phase-explainer" data-phase-explainer>
+            <strong>等待机械序列启动</strong>
+            <span>每个零件都是固定尺寸刚体，只能沿 pivot、轴线或滑轨运动。</span>
+          </div>
+          <div class="part-ledger" data-part-ledger></div>
+          <div class="safety-ledger" data-safety-ledger>Collision proxies named *_COL. Sweep check pending.</div>
+        `;
+        this.controls.before(panel);
+        this.teachingPanel = panel;
+        this.phaseStrip = panel.querySelector('[data-phase-strip]');
+        this.phaseExplainer = panel.querySelector('[data-phase-explainer]');
+        this.partLedger = panel.querySelector('[data-part-ledger]');
+        this.safetyLedger = panel.querySelector('[data-safety-ledger]');
+        this.teachingModeBadge = panel.querySelector('[data-teaching-mode]');
+      }
+
       bindControls(section) {
         section.querySelector('[data-apply-command]').addEventListener('click', () => this.startCommand(this.readInputs()));
         section.querySelector('[data-random-command]').addEventListener('click', () => {
@@ -5860,6 +6037,10 @@ for p in plan.placements:
           this.pauseButton.textContent = this.paused ? 'Resume animation' : 'Stop animation';
           this.lastTime = performance.now();
         });
+        this.slowButton?.addEventListener('click', () => {
+          this.slowMotion = !this.slowMotion;
+          this.slowButton.textContent = this.slowMotion ? 'Normal speed' : 'Slow motion';
+        });
         for (const input of [this.lengthInput, this.widthInput]) {
           input.addEventListener('keydown', (event) => {
             if (event.key === 'Enter') this.startCommand(this.readInputs());
@@ -5867,8 +6048,12 @@ for p in plan.placements:
         }
         for (const button of this.modeButtons || []) {
           button.addEventListener('click', () => {
-            this.mode = button.dataset.transformMode || 'transform';
+            const selectedMode = button.dataset.transformMode || 'principle';
+            this.mode = selectedMode;
             this.updateModeButtons();
+            this.setTeachingModeLabels(selectedMode);
+            this.update(performance.now());
+            requestAnimationFrame(() => this.update(performance.now()));
           });
         }
       }
@@ -5877,6 +6062,18 @@ for p in plan.placements:
         for (const button of this.modeButtons || []) {
           button.classList.toggle('active', button.dataset.transformMode === this.mode);
         }
+      }
+
+      setTeachingModeLabels(mode = this.mode) {
+        const labels = {
+          engineering: 'Engineering drawing',
+          linework: 'Linework view',
+          principle: 'Principle diagram',
+          animation: 'Full transform',
+        };
+        if (this.viewLabel2d) this.viewLabel2d.textContent = labels[mode] || '2D transform';
+        if (this.viewLabel3d) this.viewLabel3d.textContent = '3D four-view preview';
+        if (this.teachingModeBadge) this.teachingModeBadge.textContent = mode;
       }
 
       readInputs() {
@@ -6132,23 +6329,25 @@ for p in plan.placements:
         this.lengthInput.value = this.requestedDimensions.length.toFixed(1);
         this.widthInput.value = this.requestedDimensions.width.toFixed(1);
         this.repairLift = 0;
-        this.elapsed = initial ? commandMs * 0.55 : 0;
+        this.elapsed = initial ? commandMs + analysisMs + transformMs * 0.18 : 0;
         this.lastTime = performance.now();
         this.sweepReport = this.validateCollisionPlan(96, this.dimensions);
       }
 
       currentProgress(time) {
-        if (!this.paused) this.elapsed += Math.min(48, time - this.lastTime);
+        const speed = this.slowMotion ? 0.42 : 1;
+        if (!this.paused) this.elapsed += Math.min(48, time - this.lastTime) * speed;
         this.lastTime = time;
         if (this.elapsed > totalMs) this.startCommand(randomRigidPreset(this.mechanism, this.dimensions));
         const analysis = easeInOut(clamp((this.elapsed - commandMs) / analysisMs, 0, 1));
         const transform = easeInOut(clamp((this.elapsed - commandMs - analysisMs) / transformMs, 0, 1));
+        const teachingAnalysis = ['engineering', 'principle'].includes(this.mode) ? 1 : (this.elapsed < commandMs + analysisMs ? analysis : 0);
         return {
           transform,
-          analysis: this.mode === 'exploded' ? 1 : (this.elapsed < commandMs + analysisMs ? analysis : 0),
-          showCollision: this.mode === 'collision',
+          analysis: teachingAnalysis,
+          showCollision: this.mode === 'principle' || this.mode === 'engineering',
           phase: this.elapsed < commandMs ? 'command'
-            : this.elapsed < commandMs + analysisMs ? 'exploded analysis'
+            : this.elapsed < commandMs + analysisMs ? 'assembly analysis'
             : this.elapsed < commandMs + analysisMs + transformMs ? 'rigid transform'
             : 'locked',
           assemblyPhase: assemblyPhaseAt(this.mechanism, transform),
@@ -6195,12 +6394,28 @@ for p in plan.placements:
         part.group.rotation.set(pose.rx || 0, pose.ry || 0, pose.rz || 0);
       }
 
+      styleRigidPart(part, progress) {
+        const active = part.role !== 'static' && part.phaseIds.includes(progress.assemblyPhase.id);
+        const material = part.mesh.material;
+        material.wireframe = this.mode === 'linework';
+        material.transparent = this.mode === 'linework' || this.mode === 'principle';
+        material.opacity = this.mode === 'linework' ? (active ? 0.74 : 0.24)
+          : this.mode === 'principle' ? (active ? 1 : 0.44)
+          : 1;
+        if (material.emissive) {
+          material.emissive.setHex(active ? 0x1e6b4a : 0x000000);
+          material.emissiveIntensity = active ? 0.12 : 0;
+        }
+        part.collisionProxy.material.opacity = active ? 0.22 : 0.09;
+      }
+
       updateRigidModel(progress, target, validationOnly = false) {
         const mesh = this.moduleMeshes[0];
-        const explode = validationOnly ? 0 : (this.mode === 'exploded' ? 1 : progress.analysis || 0);
+        const explode = validationOnly ? 0 : (this.mode === 'engineering' ? 0.62 : progress.analysis || 0);
         mesh.activeCollisionBoxes = [];
         for (const part of mesh.mechanicalParts) {
           this.applyPose(part, this.poseForPart(part, progress, target), explode);
+          this.styleRigidPart(part, progress);
           part.collisionProxy.visible = progress.showCollision || this.collisionUnsafe || validationOnly;
           mesh.activeCollisionBoxes.push(part.collisionProxy);
         }
@@ -6295,6 +6510,85 @@ for p in plan.placements:
         }));
       }
 
+      phaseInstruction(phaseId) {
+        const copy = {
+          'shell-unlock': ['先解锁外壳或导轨锁扣。', '此阶段只释放锁扣，主要承重面保持不动，避免一开始就互相干涉。'],
+          'motor-start': ['电机先启动并建立同步。', '电机小车先进入工作位置，随后才允许左右台面沿导轨移动。'],
+          'rail-slide': ['沿直线导轨平移。', '运动零件先抬到让位高度，再横向滑到目标位置，最后落入锁定位。'],
+          'filler-rise': ['隐藏补板升起。', '补板等滑板让开后才上升，因此不会穿过主台面或导轨。'],
+          'leaf-deploy': ['折叠叶片展开。', '叶片绕铰链或导轨分段运动，先离开收纳层，再翻入桌面层。'],
+          'hinge-rotate': ['翻盖绕侧铰链旋转。', 'pivot 固定在侧边，角度从收纳角逐步转到水平锁定角。'],
+          'support-lock': ['限位支撑锁定。', '支撑件最后进入受力位置，不与正在翻转的面板抢空间。'],
+          'panel-fold': ['折叠面板翻出。', '面板作为整块刚体运动，不变薄、不拉伸，只改变位置和角度。'],
+          'leg-drop': ['支撑腿下放。', '腿等面板先到位后再落下，避免腿穿过台面或柜体。'],
+          'leaf-rise': ['中心叶片升起。', '左右台面先分离，中间叶片再垂直上升补齐空位。'],
+          'lift-rise': ['升降机构先抬升。', '升降柱或剪叉把桌面提高到安全层，再允许叶片展开。'],
+          'hub-rotate': ['中心转盘旋转让位。', '中心盘先旋转到展开角，给四个翼片留出铰链空间。'],
+          'wing-deploy': ['翼片分段展开。', '四片翼片沿各自铰链展开，碰撞箱全程检查彼此不相交。'],
+          lock: ['最后锁定承重位置。', '所有运动结束后才进入锁扣，碰撞体只允许边界贴合，不允许体积相交。'],
+        };
+        return copy[phaseId] || ['执行当前机械阶段。', '每个运动都通过 pivot、轴线和有限行程完成。'];
+      }
+
+      partDisplayName(part) {
+        return part.name
+          .replace(`${this.mechanism.replace(/[^a-z0-9]/g, '_')}_`, '')
+          .replace(/_/g, ' ');
+      }
+
+      activeParts(progress) {
+        return this.moduleMeshes[0].mechanicalParts.filter((part) => (
+          part.role !== 'static' && part.phaseIds.includes(progress.assemblyPhase.id)
+        ));
+      }
+
+      updateTeachingPanel(progress) {
+        if (!this.teachingPanel) return;
+        const phases = MechanismAssemblyPhases[this.mechanism] || [];
+        const activeParts = this.activeParts(progress);
+        const activeNames = activeParts.length
+          ? activeParts.map((part) => this.partDisplayName(part)).join(', ')
+          : '只有锁扣/结构件保持静止检查';
+        const [headline, detail] = this.phaseInstruction(progress.assemblyPhase.id);
+        if (this.teachingModeBadge) this.teachingModeBadge.textContent = this.mode;
+        if (this.phaseStrip) {
+          this.phaseStrip.innerHTML = phases.map((phase, index) => (
+            `<div class="phase-step ${phase.id === progress.assemblyPhase.id ? 'active' : ''}">
+              ${index + 1}. ${escapeHtml(phase.label)}<br>
+              ${Math.round(phase.start * 100)}-${Math.round(phase.end * 100)}%
+            </div>`
+          )).join('');
+        }
+        if (this.phaseExplainer) {
+          this.phaseExplainer.innerHTML = `
+            <strong>${escapeHtml(headline)}</strong>
+            <span>${escapeHtml(detail)} 当前运动零件：${escapeHtml(activeNames)}。</span>
+          `;
+        }
+        if (this.partLedger) {
+          const visibleParts = this.moduleMeshes[0].mechanicalParts
+            .filter((part) => !part.name.includes('caster'))
+            .slice(0, 14);
+          this.partLedger.innerHTML = visibleParts.map((part) => {
+            const active = activeParts.includes(part);
+            return `<div class="part-row ${active ? 'active' : ''}">
+              <strong>${escapeHtml(this.partDisplayName(part))}<br>${escapeHtml(part.collisionProxy.name)}</strong>
+              <span>pivot: ${escapeHtml(part.pivot)} | axis: ${escapeHtml(part.axis)} | range: ${escapeHtml(part.range)} | phase: ${escapeHtml(part.phaseIds.join(','))}</span>
+            </div>`;
+          }).join('');
+        }
+        if (this.safetyLedger) {
+          this.safetyLedger.classList.toggle('risk', this.collisionUnsafe);
+          if (this.collisionUnsafe && this.collisionReports?.length) {
+            const first = this.collisionReports[0];
+            this.safetyLedger.textContent = `Sweep collision: ${first.phase} frame ${first.frame}, ${first.parts.join(' / ')} (${first.proxies.join(' / ')}). Fix: ${first.suggestion}`;
+          } else {
+            const repairs = this.sweepReport?.repairLog?.length ? ` Repair log: ${this.sweepReport.repairLog.join('; ')}` : '';
+            this.safetyLedger.textContent = `No interpenetration found. ${this.sweepReport?.framesChecked || 97} sampled frames, ${this.sweepReport?.proxiesChecked || this.moduleMeshes[0].collisionBoxes.length} named *_COL proxies. Moving parts use wait/raise/move/lower ordering before lock.${repairs}`;
+          }
+        }
+      }
+
       layout2d(view) {
         const world = { minX: -1.1, maxX: 1.1, minZ: -1.1, maxZ: 1.1 };
         const unit = Math.min((view.width - 46) / (world.maxX - world.minX), (view.height - 56) / (world.maxZ - world.minZ));
@@ -6334,21 +6628,177 @@ for p in plan.placements:
         ctx.restore();
       }
 
+      drawArrow2d(ctx, from, to, color = 'rgba(30,107,74,.82)', label = '') {
+        const angle = Math.atan2(to.y - from.y, to.x - from.x);
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.stroke();
+        ctx.translate(to.x, to.y);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-8, -4);
+        ctx.lineTo(-8, 4);
+        ctx.closePath();
+        ctx.fill();
+        if (label) {
+          ctx.rotate(-angle);
+          ctx.font = '700 10px Inter, Arial, sans-serif';
+          ctx.fillText(label, 6, -6);
+        }
+        ctx.restore();
+      }
+
+      drawProjectedView(ctx, box, projection, progress, title) {
+        ctx.save();
+        ctx.strokeStyle = this.mode === 'linework' ? 'rgba(21,24,21,.7)' : 'rgba(21,24,21,.24)';
+        ctx.fillStyle = this.mode === 'linework' ? '#fffef8' : 'rgba(255,253,250,.68)';
+        ctx.lineWidth = 1;
+        drawRoundRect(ctx, box.x, box.y, box.w, box.h, 7);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = this.mode === 'linework' ? '#151815' : 'rgba(21,24,21,.72)';
+        ctx.font = '800 11px Inter, Arial, sans-serif';
+        ctx.fillText(title, box.x + 9, box.y + 17);
+        const activeParts = this.activeParts(progress);
+        const bounds = projection === 'top'
+          ? { minA: -1.16, maxA: 1.16, minB: -1.16, maxB: 1.16 }
+          : { minA: -1.16, maxA: 1.16, minB: -0.04, maxB: 1.62 };
+        const map = (a, b) => ({
+          x: box.x + 12 + (a - bounds.minA) / (bounds.maxA - bounds.minA) * (box.w - 24),
+          y: box.y + box.h - 12 - (b - bounds.minB) / (bounds.maxB - bounds.minB) * (box.h - 34),
+        });
+        for (const part of this.moduleMeshes[0].mechanicalParts) {
+          if (part.name.includes('caster')) continue;
+          const pose = this.poseForPart(part, progress, this.dimensions);
+          const active = activeParts.includes(part);
+          let a = pose.x;
+          let b = pose.z;
+          let w = part.size.x;
+          let h = part.size.z;
+          if (projection === 'front') {
+            a = pose.x; b = pose.y; w = part.size.x; h = part.size.y;
+          } else if (projection === 'side') {
+            a = pose.z; b = pose.y; w = part.size.z; h = part.size.y;
+          } else if (projection === 'perspective') {
+            a = pose.x + pose.z * 0.34; b = pose.y + pose.z * 0.18; w = part.size.x; h = Math.max(part.size.y, part.size.z * 0.18);
+          }
+          const p = map(a, b);
+          const p2 = map(a + w, b + h);
+          const rw = Math.max(3, Math.abs(p2.x - p.x));
+          const rh = Math.max(3, Math.abs(p2.y - p.y));
+          ctx.fillStyle = this.mode === 'linework'
+            ? (active ? 'rgba(30,107,74,.08)' : 'rgba(255,255,255,.3)')
+            : active ? 'rgba(30,107,74,.22)' : 'rgba(21,24,21,.055)';
+          ctx.strokeStyle = active ? 'rgba(30,107,74,.92)' : 'rgba(21,24,21,.28)';
+          ctx.lineWidth = active ? 1.8 : 1;
+          drawRoundRect(ctx, p.x - rw / 2, p.y - rh / 2, rw, rh, 3);
+          ctx.fill();
+          ctx.stroke();
+          if (active || part.name === 'top_main') {
+            ctx.fillStyle = active ? 'rgba(30,107,74,.96)' : 'rgba(21,24,21,.62)';
+            ctx.font = '700 9px Inter, Arial, sans-serif';
+            ctx.fillText(this.partDisplayName(part), p.x + 4, p.y - 4);
+          }
+        }
+        if (projection !== 'front') {
+          for (const part of activeParts.slice(0, 5)) {
+            const fromPose = part.stowed;
+            const toPose = part.deployed;
+            const from = projection === 'side' ? map(fromPose.z, fromPose.y) : map(fromPose.x, fromPose.z);
+            const to = projection === 'side' ? map(toPose.z, toPose.y) : map(toPose.x, toPose.z);
+            this.drawArrow2d(ctx, from, to, 'rgba(30,107,74,.72)', part.axis);
+          }
+        }
+        ctx.restore();
+      }
+
+      drawPhaseTimeline2d(ctx, view, progress) {
+        const phases = MechanismAssemblyPhases[this.mechanism] || [];
+        const x = 16;
+        const y = view.height - 48;
+        const w = Math.max(160, view.width - 32);
+        const h = 26;
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,253,250,.86)';
+        ctx.strokeStyle = 'rgba(21,24,21,.14)';
+        drawRoundRect(ctx, x, y, w, h, 6);
+        ctx.fill();
+        ctx.stroke();
+        phases.forEach((phase, index) => {
+          const px = x + phase.start * w;
+          const pw = Math.max(2, (phase.end - phase.start) * w);
+          ctx.fillStyle = phase.id === progress.assemblyPhase.id ? 'rgba(30,107,74,.78)' : 'rgba(21,24,21,.12)';
+          ctx.fillRect(px, y, pw, h);
+          ctx.fillStyle = phase.id === progress.assemblyPhase.id ? '#fffdf7' : 'rgba(21,24,21,.56)';
+          ctx.font = '700 9px Inter, Arial, sans-serif';
+          ctx.fillText(`${index + 1}`, px + 5, y + 17);
+        });
+        ctx.strokeStyle = 'rgba(163,93,69,.7)';
+        ctx.beginPath();
+        ctx.moveTo(x + progress.transform * w, y - 5);
+        ctx.lineTo(x + progress.transform * w, y + h + 5);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       draw2d(progress) {
         const view = resizeCanvas(this.canvas2d, this.ctx);
         const layout = this.layout2d(view);
         const ctx = this.ctx;
         ctx.clearRect(0, 0, view.width, view.height);
+        if (this.mode === 'linework') {
+          ctx.fillStyle = '#fffef8';
+          ctx.fillRect(0, 0, view.width, view.height);
+          ctx.strokeStyle = 'rgba(21,24,21,.08)';
+          for (let x = 0; x < view.width; x += 24) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, view.height); ctx.stroke();
+          }
+          for (let y = 0; y < view.height; y += 24) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(view.width, y); ctx.stroke();
+          }
+        }
+        if (this.mode === 'engineering') {
+          const gap = 10;
+          const boxW = (view.width - gap * 3) / 2;
+          const boxH = (view.height - gap * 3) / 2;
+          this.drawProjectedView(ctx, { x: gap, y: gap, w: boxW, h: boxH }, 'perspective', progress, 'Perspective - assembled view');
+          this.drawProjectedView(ctx, { x: gap * 2 + boxW, y: gap, w: boxW, h: boxH }, 'front', progress, 'Front - height and pivots');
+          this.drawProjectedView(ctx, { x: gap, y: gap * 2 + boxH, w: boxW, h: boxH }, 'side', progress, 'Side - rails and clearance');
+          this.drawProjectedView(ctx, { x: gap * 2 + boxW, y: gap * 2 + boxH, w: boxW, h: boxH }, 'top', progress, 'Top - footprint and paths');
+          return;
+        }
         this.drawRect2d(ctx, 0, 0, this.dimensions.length, this.dimensions.width, layout, 'rgba(30,107,74,.06)', 'rgba(30,107,74,.72)', 2);
         ctx.fillStyle = 'rgba(30,107,74,.94)';
         ctx.font = '700 12px Inter, Arial, sans-serif';
-        ctx.fillText(`Rigid preset: ${this.dimensions.length.toFixed(1)}m x ${this.dimensions.width.toFixed(1)}m`, 16, view.height - 18);
+        ctx.fillText(`${this.mode === 'linework' ? 'Linework' : this.mode === 'principle' ? 'Principle diagram' : 'Full animation'}: ${this.dimensions.length.toFixed(1)}m x ${this.dimensions.width.toFixed(1)}m`, 16, view.height - 18);
+        const activeParts = this.activeParts(progress);
         for (const part of this.moduleMeshes[0].mechanicalParts) {
           if (part.name.includes('caster')) continue;
           const pose = this.poseForPart(part, progress, this.dimensions);
-          const alpha = part.role === 'static' ? 0.18 : 0.62;
-          this.drawRect2d(ctx, pose.x, pose.z, part.size.x, part.size.z, layout, `rgba(30,107,74,${alpha * 0.28})`, part.role === 'static' ? 'rgba(21,24,21,.22)' : 'rgba(30,107,74,.62)', 1, pose.ry || 0);
+          const active = activeParts.includes(part);
+          const alpha = active ? 0.74 : part.role === 'static' ? 0.16 : 0.42;
+          const fill = this.mode === 'linework' ? 'rgba(255,255,255,.08)' : `rgba(30,107,74,${alpha * 0.26})`;
+          const stroke = active ? 'rgba(30,107,74,.88)' : part.role === 'static' ? 'rgba(21,24,21,.22)' : 'rgba(30,107,74,.52)';
+          this.drawRect2d(ctx, pose.x, pose.z, part.size.x, part.size.z, layout, fill, stroke, active ? 2 : 1, pose.ry || 0);
+          if ((this.mode === 'principle' && active) || (this.mode === 'linework' && active)) {
+            const label = this.toPixel({ x: pose.x, z: pose.z }, layout);
+            ctx.fillStyle = active ? 'rgba(30,107,74,.94)' : 'rgba(21,24,21,.48)';
+            ctx.font = '700 10px Inter, Arial, sans-serif';
+            ctx.fillText(this.partDisplayName(part), label.x + 6, label.y - 5);
+          }
         }
+        for (const part of activeParts.slice(0, 6)) {
+          const from = this.toPixel({ x: part.stowed.x, z: part.stowed.z }, layout);
+          const to = this.toPixel({ x: part.deployed.x, z: part.deployed.z }, layout);
+          this.drawArrow2d(ctx, from, to, 'rgba(30,107,74,.76)', part.axis);
+        }
+        this.drawPhaseTimeline2d(ctx, view, progress);
       }
 
       setArrow(index, origin, direction, length, color = 0x74a66f) {
@@ -6378,9 +6828,10 @@ for p in plan.placements:
         const safetyText = this.collisionUnsafe
           ? `collision risk: ${this.collisionFailures.join(', ')}`
           : `rigid sweep clear: ${(this.sweepReport?.framesChecked || 97)} frames`;
-        const modeText = this.mode === 'collision' ? 'collision volumes visible'
-          : this.mode === 'exploded' ? 'exploded assembly analysis'
-          : 'rigid mechanical sequence';
+        const modeText = this.mode === 'engineering' ? 'engineering drawings + labels'
+          : this.mode === 'linework' ? 'black-white linework'
+          : this.mode === 'principle' ? 'phase principle + collision boxes'
+          : 'complete rigid transform animation';
         const snapText = `requested ${this.requestedDimensions.length.toFixed(1)}x${this.requestedDimensions.width.toFixed(1)} -> snapped ${this.dimensions.length.toFixed(1)}x${this.dimensions.width.toFixed(1)}`;
         const html = [
           `<span class="analysis-chip">${escapeHtml(modeText)}</span>`,
@@ -6459,14 +6910,17 @@ for p in plan.placements:
 
       update(time) {
         const progress = this.currentProgress(time);
+        this.setTeachingModeLabels(this.mode);
         this.draw2d(progress);
         this.draw3d(progress);
+        this.updateTeachingPanel(progress);
         if (this.status) {
           const paused = this.paused ? 'paused' : 'running';
+          const speed = this.slowMotion ? 'slow' : 'normal';
           const collision = this.collisionUnsafe ? `collision risk ${this.collisionFailures.join(', ')}` : 'collision clear';
           const sweep = this.sweepReport?.safe ? `${this.sweepReport.framesChecked}f rigid sweep clear` : 'sweep needs repair';
           const snap = `requested ${this.requestedDimensions.length.toFixed(1)}x${this.requestedDimensions.width.toFixed(1)} -> snapped ${this.dimensions.length.toFixed(1)}x${this.dimensions.width.toFixed(1)}`;
-          this.status.textContent = `${mechanismNames[this.mechanism]} | ${snap} | ${progress.assemblyPhase.label} | ${this.mode} | ${collision} | ${sweep} | ${paused}`;
+          this.status.textContent = `${mechanismNames[this.mechanism]} | ${snap} | ${progress.assemblyPhase.label} | ${this.mode} teaching | ${collision} | ${sweep} | ${speed} | ${paused}`;
         }
       }
     }
