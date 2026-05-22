@@ -944,6 +944,84 @@
       color: #dcebd7;
     }
 
+    .movement-dialogue {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid rgba(30, 107, 74, .18);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 250, .78);
+    }
+
+    .dialogue-bubble {
+      padding: 8px 10px;
+      border: 1px solid rgba(21, 24, 21, .12);
+      border-radius: 8px;
+      background: #fffdfa;
+      color: rgba(21, 24, 21, .56);
+      font-size: 12px;
+      font-weight: 720;
+      line-height: 1.38;
+      transition: border-color .24s ease, color .24s ease, background .24s ease, transform .24s ease;
+    }
+
+    .dialogue-bubble.active {
+      border-color: rgba(30, 107, 74, .36);
+      background: rgba(30, 107, 74, .08);
+      color: var(--graphite);
+      transform: translateX(3px);
+    }
+
+    .movement-key {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .movement-key span {
+      display: inline-flex;
+      min-height: 24px;
+      align-items: center;
+      padding: 4px 7px;
+      border: 1px solid rgba(21, 24, 21, .12);
+      border-radius: 6px;
+      background: rgba(255, 253, 250, .72);
+    }
+
+    .movement-slide .transform-demo {
+      grid-template-columns: minmax(300px, .66fr) minmax(0, 1.34fr);
+      gap: 14px;
+    }
+
+    .movement-slide .transform-copy {
+      justify-content: start;
+      gap: 9px;
+    }
+
+    .movement-slide h2 {
+      font-size: 42px;
+      line-height: 1.05;
+    }
+
+    .movement-slide .lead {
+      font-size: 18px;
+      line-height: 1.42;
+    }
+
+    .movement-slide .dialogue-bubble {
+      padding: 6px 8px;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    .movement-slide .movement-key {
+      gap: 5px;
+      font-size: 11px;
+    }
+
     .code-grid {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1044,6 +1122,10 @@
         grid-template-columns: minmax(0, 1fr);
       }
 
+      .movement-slide .transform-demo {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
       .transform-stage-grid {
         min-height: 560px;
       }
@@ -1109,6 +1191,10 @@
       .transform-demo,
       .transform-stage-grid,
       .transform-controls {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .movement-slide .transform-demo {
         grid-template-columns: minmax(0, 1fr);
       }
 
@@ -1548,9 +1634,9 @@
         <h2>When you ask for a table, nine identical cabinets become the surface.</h2>
         <p class="lead">你不需要知道算法。你只说“我要一张多大的桌面”，系统让 9 个 60cm x 60cm x 50cm 柜子移动、升降或展开桌面机构，决定它们的位置、排列和变形方式。</p>
         <div class="plain-demo">
-          <article class="plain-step"><strong>中文解释</strong><p>第二类机器人像带可变形桌面的移动柜子。底座永远是 60cm 方形，桌面通过滑移、翻折、升降、折纸翼片等方式变大。</p></article>
-          <article class="plain-step"><strong>Plain English</strong><p>Each robot keeps the same cabinet body. The tabletop changes by mechanism, while SpatialOS coordinates the 9-node layout.</p></article>
-          <article class="plain-step"><strong>安全边界</strong><p>本页展示同步移动概念：每个柜子拿到自己的预约通道，真实硬件仍由运动规划、避障、急停和空间锁保护。</p></article>
+          <article class="plain-step"><strong>中文解释</strong><p>第二类机器人像带可变形桌面的移动柜子。先安全移动到一起，再让桌面通过滑移、翻折、升降、折纸翼片等方式变大。</p></article>
+          <article class="plain-step"><strong>Plain English</strong><p>Each robot keeps the same cabinet body. SpatialOS first coordinates traffic, then runs the selected tabletop mechanism.</p></article>
+          <article class="plain-step"><strong>安全边界</strong><p>移动层和变形层分开验证：移动时只看 60cm 底座、障碍物和人体安全区；到位锁定后才开始桌面机构。</p></article>
           <article class="plain-step"><strong>Why Rush Hour matters</strong><p>Rush Hour shows that moving many rectangles can become very hard. So we split “where should they end up” from “how should they move there”.</p></article>
         </div>
       </main>
@@ -1560,12 +1646,44 @@
           <ol>
             <li>Keep all 9 cabinet bases fixed at 60cm square.</li>
             <li>Split the requested rectangle into a 3 x 3 surface grid.</li>
-            <li>Move from the previous locked state into the next layout.</li>
-            <li>Animate a mechanism-specific top transformation.</li>
-            <li>Reject overlapping base collision volumes.</li>
+            <li>Plan traffic with obstacle and human keep-out zones.</li>
+            <li>Negotiate slot swaps when a route is blocked.</li>
+            <li>After bases lock, animate the tabletop mechanism.</li>
           </ol>
         </div>
       </aside>
+    </section>
+
+    <section class="slide full transform-slide movement-slide" data-movement-demo data-notes="Movement is separated from transformation: 9 cabinets first negotiate safe routes, avoid obstacles and the human keep-out zone, and swap target slots when a route is blocked.">
+      <main class="transform-demo">
+        <div class="transform-copy">
+          <p class="print-title">Movement coordination</p>
+          <p class="kicker">Movement Layer / Before Transform</p>
+          <h2>Cabinets move together safely.</h2>
+          <p class="lead">9 个 60cm 柜子从房间不同位置出发。它们先做交通预约，避开人、沙发、储物墙和临时障碍；如果某个目标位去不了，就和其他柜子对话并交换目标位。</p>
+          <span class="mechanism-tag">motion only: no tabletop transform</span>
+          <div class="transform-controls" data-move-controls>
+            <button class="transform-button primary" data-move-command>New move command</button>
+            <button class="transform-button" data-move-pause>Stop animation</button>
+            <div class="transform-status" data-move-status>Booting traffic planner...</div>
+          </div>
+          <div class="movement-dialogue" data-dialogue-panel>
+            <div class="dialogue-bubble" data-dialogue="0"><strong>Human:</strong> “在前方合成一个 1.8m x 1.8m 平台。”</div>
+            <div class="dialogue-bubble" data-dialogue="1"><strong>C4:</strong> “我的直线路径被 sofa zone 挡住，B2 槽位不可达。”</div>
+            <div class="dialogue-bubble" data-dialogue="2"><strong>C7:</strong> “我能从北侧安全进入。C4，我们交换目标位。”</div>
+            <div class="dialogue-bubble" data-dialogue="3"><strong>SpatialOS:</strong> “Swap accepted. Reservation table revalidated: no cabinet-cabinet / cabinet-obstacle collision.”</div>
+          </div>
+          <div class="movement-key">
+            <span>green = final platform</span>
+            <span>amber = reserved path</span>
+            <span>red outline = collision body</span>
+          </div>
+        </div>
+        <div class="transform-stage-grid">
+          <div class="transform-view"><span class="view-label">2D traffic plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view dark"><span class="view-label">3D room move</span><canvas data-view="3d"></canvas></div>
+        </div>
+      </main>
     </section>
 
     <section class="slide full transform-slide" data-transform-mechanism="geometric" data-notes="Combined 2D and 3D animation for two-axis geometric sliding, based on Ozzio-style mechanisms.">
@@ -1574,7 +1692,7 @@
           <p class="print-title">Two-axis geometric sliding</p>
           <p class="kicker">Transform Mechanism 1 / 8</p>
           <h2>Two-axis geometric sliding</h2>
-          <p class="lead">9 个相同柜体保持 60cm 底座；顶部板块沿几何滑轨向四周滑开，隐藏补板出现，形成新的长宽。</p>
+          <p class="lead">这里假设 9 个柜体已经完成移动并锁定。底座保持 60cm 方形，只有顶部板块沿几何滑轨向四周滑开，隐藏补板出现，形成新的长宽。</p>
           <span class="mechanism-tag">Ozzio-style geometric sliding</span>
           <div class="transform-controls" data-transform-controls>
             <label class="transform-field">Length m<input data-length-input type="number" min="1.8" max="3.6" step="0.3" value="2.4"></label>
@@ -1586,7 +1704,7 @@
           </div>
         </div>
         <div class="transform-stage-grid">
-          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view"><span class="view-label">2D transform</span><canvas data-view="2d"></canvas></div>
           <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
         </div>
       </main>
@@ -1610,7 +1728,7 @@
           </div>
         </div>
         <div class="transform-stage-grid">
-          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view"><span class="view-label">2D transform</span><canvas data-view="2d"></canvas></div>
           <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
         </div>
       </main>
@@ -1634,7 +1752,7 @@
           </div>
         </div>
         <div class="transform-stage-grid">
-          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view"><span class="view-label">2D transform</span><canvas data-view="2d"></canvas></div>
           <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
         </div>
       </main>
@@ -1658,7 +1776,7 @@
           </div>
         </div>
         <div class="transform-stage-grid">
-          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view"><span class="view-label">2D transform</span><canvas data-view="2d"></canvas></div>
           <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
         </div>
       </main>
@@ -1682,7 +1800,7 @@
           </div>
         </div>
         <div class="transform-stage-grid">
-          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view"><span class="view-label">2D transform</span><canvas data-view="2d"></canvas></div>
           <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
         </div>
       </main>
@@ -1706,7 +1824,7 @@
           </div>
         </div>
         <div class="transform-stage-grid">
-          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view"><span class="view-label">2D transform</span><canvas data-view="2d"></canvas></div>
           <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
         </div>
       </main>
@@ -1730,7 +1848,7 @@
           </div>
         </div>
         <div class="transform-stage-grid">
-          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view"><span class="view-label">2D transform</span><canvas data-view="2d"></canvas></div>
           <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
         </div>
       </main>
@@ -1754,7 +1872,7 @@
           </div>
         </div>
         <div class="transform-stage-grid">
-          <div class="transform-view"><span class="view-label">2D plan</span><canvas data-view="2d"></canvas></div>
+          <div class="transform-view"><span class="view-label">2D transform</span><canvas data-view="2d"></canvas></div>
           <div class="transform-view dark"><span class="view-label">3D mechanism</span><canvas data-view="3d"></canvas></div>
         </div>
       </main>
@@ -3296,10 +3414,9 @@ for p in plan.placements:
     const MAX_SIZE = 3.6;
     const STEP = 0.3;
     const commandMs = 850;
-    const moveMs = 2600;
     const transformMs = 2500;
     const holdMs = 1800;
-    const totalMs = commandMs + moveMs + transformMs + holdMs;
+    const totalMs = commandMs + transformMs + holdMs;
     const colors = ['#fffef8', '#dfe7e1', '#ead9bd', '#dce4e5', '#f1e5ba', '#d9d7ce', '#e7efe4', '#ded8cb', '#f5efe2'];
     const mechanismNames = {
       geometric: 'Two-axis geometric sliding',
@@ -3369,6 +3486,601 @@ for p in plan.placements:
       ctx.quadraticCurveTo(x, y, x + radius, y);
     }
 
+    class MovementCoordinationDemo {
+      constructor(section) {
+        this.section = section;
+        this.canvas2d = section.querySelector('canvas[data-view="2d"]');
+        this.canvas3d = section.querySelector('canvas[data-view="3d"]');
+        this.ctx = this.canvas2d.getContext('2d');
+        this.status = section.querySelector('[data-move-status]');
+        this.pauseButton = section.querySelector('[data-move-pause]');
+        this.dialogues = Array.from(section.querySelectorAll('[data-dialogue]'));
+        this.paused = false;
+        this.elapsed = 0;
+        this.lastTime = performance.now();
+        this.scenario = 0;
+        this.room = { minX: -3.45, maxX: 3.45, minZ: -2.75, maxZ: 3.05 };
+        this.person = { x: 0.12, z: 2.36, radius: 0.42 };
+        this.obstacles = [
+          { name: 'StorageWall', x: -3.06, z: 0.55, w: 0.52, d: 2.82, color: '#b9b3a7' },
+          { name: 'Sofa', x: 2.36, z: -1.04, w: 1.05, d: 1.08, color: '#c6b99f' },
+          { name: 'Cart', x: -2.16, z: -0.22, w: 0.66, d: 0.52, color: '#bfc8bf' },
+          { name: 'Light zone', x: -2.18, z: 0.96, w: 0.54, d: 0.54, color: '#d9c997' },
+        ];
+        this.setup3d();
+        this.bindControls(section);
+        this.buildScenario();
+      }
+
+      bindControls(section) {
+        section.querySelector('[data-move-command]').addEventListener('click', () => {
+          this.buildScenario();
+        });
+        this.pauseButton.addEventListener('click', () => {
+          this.paused = !this.paused;
+          this.pauseButton.textContent = this.paused ? 'Resume animation' : 'Stop animation';
+          this.lastTime = performance.now();
+        });
+      }
+
+      targetSlots() {
+        const slots = [];
+        for (let row = 0; row < 3; row += 1) {
+          for (let col = 0; col < 3; col += 1) {
+            slots.push({
+              index: row * 3 + col,
+              row,
+              col,
+              x: (col - 1) * BASE,
+              z: (row - 1) * BASE + 0.08,
+            });
+          }
+        }
+        return slots;
+      }
+
+      startPoints() {
+        return [
+          { x: -2.56, z: -2.12 },
+          { x: -1.18, z: -2.38 },
+          { x: 1.22, z: -2.34 },
+          { x: 3.02, z: -2.30 },
+          { x: -2.28, z: 2.23 },
+          { x: -1.08, z: 2.58 },
+          { x: 1.18, z: 2.58 },
+          { x: 2.66, z: 2.36 },
+          { x: 2.96, z: 0.58 },
+        ];
+      }
+
+      preDockFor(slot) {
+        if (slot.index === 4) return { x: 0, z: -1.28 };
+        if (slot.row === 0) return { x: slot.x, z: -1.56 - Math.abs(slot.col - 1) * 0.08 };
+        if (slot.row === 2) return { x: slot.x, z: 1.36 + Math.abs(slot.col - 1) * 0.08 };
+        if (slot.col === 0) return { x: -1.38, z: slot.z };
+        return { x: 1.38, z: slot.z };
+      }
+
+      buildScenario() {
+        this.scenario += 1;
+        const starts = this.startPoints();
+        const slots = this.targetSlots();
+        const assignment = [0, 1, 2, 6, 4, 5, 3, 7, 8];
+        const modules = [];
+
+        for (let i = 0; i < 9; i += 1) {
+          const start = starts[i];
+          const slot = slots[assignment[i]];
+          const preDock = this.preDockFor(slot);
+          modules.push({
+            id: `C${i + 1}`,
+            index: i,
+            start,
+            goal: { x: slot.x, z: slot.z },
+            current: { ...start },
+            slot,
+            preDock,
+            path: [],
+            delay: 0,
+            duration: 1,
+          });
+        }
+
+        this.modules = modules;
+        this.planRoutes();
+        this.elapsed = 0;
+        this.lastTime = performance.now();
+        this.refresh3dModules();
+      }
+
+      bodyAt(point, padding = 0) {
+        return { x: point.x, z: point.z, w: BASE + padding * 2, d: BASE + padding * 2 };
+      }
+
+      rectsOverlap(a, b, pad = 0) {
+        return Math.abs(a.x - b.x) < (a.w + b.w) / 2 + pad
+          && Math.abs(a.z - b.z) < (a.d + b.d) / 2 + pad;
+      }
+
+      bodyHitsObstacle(body, pad = 0.02) {
+        return this.obstacles.some((obstacle) => this.rectsOverlap(body, obstacle, pad));
+      }
+
+      bodyHitsPerson(body, pad = 0.08) {
+        const nearestX = clamp(this.person.x, body.x - body.w / 2 - pad, body.x + body.w / 2 + pad);
+        const nearestZ = clamp(this.person.z, body.z - body.d / 2 - pad, body.z + body.d / 2 + pad);
+        return Math.hypot(this.person.x - nearestX, this.person.z - nearestZ) < this.person.radius + pad;
+      }
+
+      bodyHitsBlockers(body, blockers, pad = -0.002) {
+        return blockers.some((blocker) => this.rectsOverlap(body, { x: blocker.x, z: blocker.z, w: BASE, d: BASE }, pad));
+      }
+
+      passable(point, blockers = []) {
+        const body = this.bodyAt(point, 0.04);
+        if (body.x - body.w / 2 < this.room.minX || body.x + body.w / 2 > this.room.maxX) return false;
+        if (body.z - body.d / 2 < this.room.minZ || body.z + body.d / 2 > this.room.maxZ) return false;
+        return !this.bodyHitsObstacle(body, 0.02)
+          && !this.bodyHitsPerson(body, 0.02)
+          && !this.bodyHitsBlockers(body, blockers);
+      }
+
+      gridKey(point) {
+        return `${Math.round(point.x * 10) / 10},${Math.round(point.z * 10) / 10}`;
+      }
+
+      snapToGrid(point) {
+        const step = 0.3;
+        return {
+          x: Number((Math.round(point.x / step) * step).toFixed(1)),
+          z: Number((Math.round(point.z / step) * step).toFixed(1)),
+        };
+      }
+
+      pathIsClear(points, blockers = []) {
+        for (let i = 1; i < points.length; i += 1) {
+          const a = points[i - 1];
+          const b = points[i];
+          const steps = Math.max(3, Math.ceil(Math.hypot(a.x - b.x, a.z - b.z) / 0.15));
+          for (let step = 0; step <= steps; step += 1) {
+            const t = step / steps;
+            if (!this.passable({ x: lerp(a.x, b.x, t), z: lerp(a.z, b.z, t) }, blockers)) return false;
+          }
+        }
+        return true;
+      }
+
+      fallbackPath(start, goal, blockers = []) {
+        const lanes = [
+          this.room.minZ + 0.46,
+          this.room.maxZ - 0.46,
+          start.z < goal.z ? this.room.minZ + 0.46 : this.room.maxZ - 0.46,
+        ];
+        const verticals = [
+          this.room.minX + 0.46,
+          this.room.maxX - 0.46,
+        ];
+        const candidates = [
+          ...lanes.map((z) => [start, { x: start.x, z }, { x: goal.x, z }, goal]),
+          ...verticals.map((x) => [start, { x, z: start.z }, { x, z: goal.z }, goal]),
+        ];
+        const clear = candidates.find((path) => this.pathIsClear(path, blockers));
+        return clear ? this.compressPath(clear) : [start, goal];
+      }
+
+      findPath(start, goal, blockers = []) {
+        const snappedStart = this.snapToGrid(start);
+        const snappedGoal = this.snapToGrid(goal);
+        const startKey = this.gridKey(snappedStart);
+        const goalKey = this.gridKey(snappedGoal);
+        const open = [{ ...snappedStart, key: startKey, g: 0, f: 0 }];
+        const cameFrom = new Map();
+        const cost = new Map([[startKey, 0]]);
+        const visited = new Set();
+        const dirs = [
+          { x: 0.3, z: 0 }, { x: -0.3, z: 0 }, { x: 0, z: 0.3 }, { x: 0, z: -0.3 },
+        ];
+
+        while (open.length) {
+          open.sort((a, b) => a.f - b.f || a.key.localeCompare(b.key));
+          const current = open.shift();
+          if (current.key === goalKey) break;
+          if (visited.has(current.key)) continue;
+          visited.add(current.key);
+
+          for (const dir of dirs) {
+            const next = {
+              x: Number((current.x + dir.x).toFixed(1)),
+              z: Number((current.z + dir.z).toFixed(1)),
+            };
+            if (!this.passable(next, blockers)) continue;
+            const nextKey = this.gridKey(next);
+            const nextCost = cost.get(current.key) + 1;
+            if (!cost.has(nextKey) || nextCost < cost.get(nextKey)) {
+              cost.set(nextKey, nextCost);
+              cameFrom.set(nextKey, current.key);
+              const h = Math.abs(next.x - snappedGoal.x) + Math.abs(next.z - snappedGoal.z);
+              open.push({ ...next, key: nextKey, g: nextCost, f: nextCost + h });
+            }
+          }
+        }
+
+        if (!cameFrom.has(goalKey) && startKey !== goalKey) return this.fallbackPath(start, goal, blockers);
+        const points = [snappedGoal];
+        let key = goalKey;
+        while (key !== startKey) {
+          key = cameFrom.get(key);
+          const [x, z] = key.split(',').map(Number);
+          points.push({ x, z });
+        }
+        points.reverse();
+        points[0] = start;
+        points[points.length - 1] = goal;
+        return this.compressPath(points);
+      }
+
+      compressPath(points) {
+        if (points.length < 3) return points;
+        const out = [points[0]];
+        for (let i = 1; i < points.length - 1; i += 1) {
+          const prev = out[out.length - 1];
+          const here = points[i];
+          const next = points[i + 1];
+          const dx1 = Math.sign(here.x - prev.x);
+          const dz1 = Math.sign(here.z - prev.z);
+          const dx2 = Math.sign(next.x - here.x);
+          const dz2 = Math.sign(next.z - here.z);
+          if (dx1 !== dx2 || dz1 !== dz2) out.push(here);
+        }
+        out.push(points[points.length - 1]);
+        return out;
+      }
+
+      planRoutes() {
+        const dockPriority = [4, 2, 1, 6, 8, 0, 7, 3, 5];
+        const movingOrder = [...this.modules].sort((a, b) => dockPriority.indexOf(a.slot.index) - dockPriority.indexOf(b.slot.index));
+        const moved = new Set();
+        for (const module of movingOrder) {
+          const blockers = this.modules
+            .filter((other) => other.id !== module.id)
+            .map((other) => (moved.has(other.id) ? other.goal : other.start));
+          module.path = this.manualRouteFor(module)
+            || this.compressPath([
+              ...this.findPath(module.start, module.preDock, blockers),
+              ...this.findPath(module.preDock, module.goal, blockers).slice(1),
+            ]);
+          module.order = dockPriority.indexOf(module.slot.index);
+          module.delay = module.order * 0.102;
+          module.duration = 0.18;
+          moved.add(module.id);
+        }
+
+        if (!this.validatePlan().safe) {
+          for (const module of this.modules) {
+            module.delay = module.order * 0.108;
+            module.duration = 0.13;
+          }
+        }
+      }
+
+      manualRouteFor(module) {
+        const routes = {
+          C1: [module.start, { x: -2.2, z: -1.56 }, { x: -0.6, z: -1.56 }, module.goal],
+          C2: [module.start, { x: 0, z: -1.56 }, module.goal],
+          C3: [module.start, { x: 1.38, z: -1.56 }, { x: 0.6, z: -1.56 }, module.goal],
+          C4: [module.start, { x: 3.0, z: -2.35 }, { x: -0.6, z: -2.35 }, { x: -0.6, z: 1.42 }, module.goal],
+          C5: [module.start, { x: -2.2, z: 1.66 }, { x: -0.9, z: 1.66 }, { x: -0.9, z: -1.28 }, { x: 0, z: -1.28 }, module.goal],
+          C6: [module.start, { x: -0.9, z: 1.44 }, { x: 1.38, z: 1.44 }, { x: 1.38, z: 0.08 }, module.goal],
+          C7: [module.start, { x: 1.58, z: 1.44 }, { x: -1.38, z: 1.44 }, { x: -1.38, z: 0.08 }, module.goal],
+          C8: [module.start, { x: 1.58, z: 1.44 }, { x: 0, z: 1.44 }, module.goal],
+          C9: [module.start, { x: 3.0, z: 1.44 }, { x: 0.6, z: 1.44 }, module.goal],
+        };
+        const path = routes[module.id];
+        return path ? this.compressPath(path) : null;
+      }
+
+      pointOnPath(path, progress) {
+        if (path.length <= 1) return path[0];
+        const lengths = [];
+        let total = 0;
+        for (let i = 1; i < path.length; i += 1) {
+          const segment = Math.hypot(path[i].x - path[i - 1].x, path[i].z - path[i - 1].z);
+          lengths.push(segment);
+          total += segment;
+        }
+        let remaining = total * progress;
+        for (let i = 1; i < path.length; i += 1) {
+          if (remaining <= lengths[i - 1] || i === path.length - 1) {
+            const t = lengths[i - 1] ? clamp(remaining / lengths[i - 1], 0, 1) : 1;
+            return {
+              x: lerp(path[i - 1].x, path[i].x, t),
+              z: lerp(path[i - 1].z, path[i].z, t),
+            };
+          }
+          remaining -= lengths[i - 1];
+        }
+        return path[path.length - 1];
+      }
+
+      modulePoint(module, moveProgress) {
+        const local = clamp((moveProgress - module.delay) / module.duration, 0, 1);
+        return this.pointOnPath(module.path, easeInOut(local));
+      }
+
+      validatePlan(samples = 96) {
+        const failures = [];
+        for (let i = 0; i <= samples; i += 1) {
+          const progress = i / samples;
+          for (let a = 0; a < this.modules.length; a += 1) {
+            const moduleA = this.modules[a];
+            const bodyA = this.bodyAt(this.modulePoint(moduleA, progress));
+            if (this.bodyHitsObstacle(bodyA, 0)) failures.push(`${moduleA.id}:obstacle@${progress.toFixed(2)}`);
+            if (this.bodyHitsPerson(bodyA, 0)) failures.push(`${moduleA.id}:person@${progress.toFixed(2)}`);
+            for (let b = a + 1; b < this.modules.length; b += 1) {
+              const moduleB = this.modules[b];
+              const bodyB = this.bodyAt(this.modulePoint(moduleB, progress));
+              if (this.rectsOverlap(bodyA, bodyB, -0.002)) {
+                failures.push(`${moduleA.id}-${moduleB.id}@${progress.toFixed(2)}`);
+              }
+            }
+          }
+        }
+        return { safe: failures.length === 0, failures };
+      }
+
+      currentProgress(time) {
+        const commandMsMove = 900;
+        const negotiateMs = 1650;
+        const moveMsOnly = 5200;
+        const holdMsMove = 1800;
+        const total = commandMsMove + negotiateMs + moveMsOnly + holdMsMove;
+        if (!this.paused) this.elapsed = Math.min(total, this.elapsed + Math.min(48, time - this.lastTime));
+        this.lastTime = time;
+        const moveStart = commandMsMove + negotiateMs;
+        const moveProgress = easeInOut(clamp((this.elapsed - moveStart) / moveMsOnly, 0, 1));
+        const phase = this.elapsed < commandMsMove ? 'human command'
+          : this.elapsed < moveStart ? 'negotiating swap'
+          : moveProgress < 1 ? 'reserved parallel move'
+          : 'base lock complete';
+        const dialogueIndex = this.elapsed < commandMsMove ? 0
+          : this.elapsed < commandMsMove + negotiateMs * 0.34 ? 1
+          : this.elapsed < commandMsMove + negotiateMs * 0.68 ? 2
+          : 3;
+        return { move: moveProgress, phase, dialogueIndex };
+      }
+
+      setup3d() {
+        this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas3d, antialias: true, alpha: true });
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(44, 1, 0.1, 100);
+        this.scene.add(new THREE.HemisphereLight(0xf7f4ec, 0x242822, 2.4));
+        const key = new THREE.DirectionalLight(0xffffff, 2.2);
+        key.position.set(4, 7, 5);
+        this.scene.add(key);
+        const floor = new THREE.Mesh(
+          new THREE.PlaneGeometry(7.4, 6.4),
+          new THREE.MeshStandardMaterial({ color: 0x242822, roughness: 0.92, metalness: 0.04 })
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -0.02;
+        this.scene.add(floor);
+        const grid = new THREE.GridHelper(7.4, 16, 0x74a66f, 0x4b5349);
+        grid.position.y = 0.002;
+        this.scene.add(grid);
+        this.target3d = new THREE.Mesh(
+          new THREE.BoxGeometry(1.8, 0.035, 1.8),
+          new THREE.MeshStandardMaterial({ color: 0x74a66f, transparent: true, opacity: 0.2, roughness: 0.55 })
+        );
+        this.target3d.position.set(0, BASE_HEIGHT + 0.08, 0.08);
+        this.scene.add(this.target3d);
+        this.moduleGroup = new THREE.Group();
+        this.scene.add(this.moduleGroup);
+        this.pathGroup = new THREE.Group();
+        this.scene.add(this.pathGroup);
+        this.obstacleMeshes = [];
+        for (const obstacle of this.obstacles || []) this.addObstacle3d(obstacle);
+      }
+
+      addObstacle3d(obstacle) {
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(obstacle.w, 0.42, obstacle.d),
+          new THREE.MeshStandardMaterial({ color: 0x8f8a7e, roughness: 0.82, metalness: 0.02 })
+        );
+        mesh.position.set(obstacle.x, 0.21, obstacle.z);
+        this.scene.add(mesh);
+        this.obstacleMeshes.push(mesh);
+      }
+
+      refresh3dModules() {
+        if (!this.moduleGroup) return;
+        while (this.moduleGroup.children.length) {
+          const child = this.moduleGroup.children.pop();
+          child.geometry?.dispose();
+          child.material?.dispose();
+        }
+        while (this.pathGroup.children.length) {
+          const child = this.pathGroup.children.pop();
+          child.geometry?.dispose();
+          child.material?.dispose();
+        }
+
+        this.moduleMeshes = this.modules.map((module) => {
+          const mesh = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 1, 1),
+            new THREE.MeshStandardMaterial({ color: new THREE.Color(colors[module.index % colors.length]), roughness: 0.72, metalness: 0.04 })
+          );
+          mesh.scale.set(BASE, BASE_HEIGHT, BASE);
+          mesh.position.set(module.start.x, BASE_HEIGHT / 2, module.start.z);
+          const outline = new THREE.LineSegments(
+            new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)),
+            new THREE.LineBasicMaterial({ color: 0x9a4f3e, transparent: true, opacity: 0.34 })
+          );
+          mesh.add(outline);
+          this.moduleGroup.add(mesh);
+          return mesh;
+        });
+
+        for (const module of this.modules) {
+          const geometry = new THREE.BufferGeometry().setFromPoints(module.path.map((p) => new THREE.Vector3(p.x, 0.04, p.z)));
+          const line = new THREE.Line(
+            geometry,
+            new THREE.LineBasicMaterial({ color: 0xc58b3a, transparent: true, opacity: 0.46 })
+          );
+          this.pathGroup.add(line);
+        }
+      }
+
+      layout2d(view) {
+        const unit = Math.max(10, Math.min(Math.max(120, view.width - 48) / (this.room.maxX - this.room.minX), Math.max(120, view.height - 60) / (this.room.maxZ - this.room.minZ)));
+        return {
+          unit,
+          left: (view.width - (this.room.maxX - this.room.minX) * unit) / 2,
+          top: (view.height - (this.room.maxZ - this.room.minZ) * unit) / 2,
+        };
+      }
+
+      toPixel(point, layout) {
+        return {
+          x: layout.left + (point.x - this.room.minX) * layout.unit,
+          y: layout.top + (point.z - this.room.minZ) * layout.unit,
+        };
+      }
+
+      drawWorldRect(ctx, cx, cz, width, depth, layout, fill, stroke, lineWidth = 1) {
+        const point = this.toPixel({ x: cx - width / 2, z: cz - depth / 2 }, layout);
+        const w = width * layout.unit;
+        const h = depth * layout.unit;
+        if (fill) {
+          ctx.fillStyle = fill;
+          drawRoundRect(ctx, point.x, point.y, w, h, 4);
+          ctx.fill();
+        }
+        if (stroke) {
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = lineWidth;
+          drawRoundRect(ctx, point.x, point.y, w, h, 4);
+          ctx.stroke();
+        }
+      }
+
+      draw2d(progress) {
+        const view = resizeCanvas(this.canvas2d, this.ctx);
+        const layout = this.layout2d(view);
+        const ctx = this.ctx;
+        ctx.clearRect(0, 0, view.width, view.height);
+        this.drawWorldRect(ctx, 0, 0.08, 1.8, 1.8, layout, 'rgba(30,107,74,.06)', 'rgba(30,107,74,.72)', 2);
+        for (const obstacle of this.obstacles) {
+          this.drawWorldRect(ctx, obstacle.x, obstacle.z, obstacle.w, obstacle.d, layout, 'rgba(143,138,126,.28)', 'rgba(21,24,21,.26)');
+          const p = this.toPixel(obstacle, layout);
+          ctx.fillStyle = 'rgba(21,24,21,.58)';
+          ctx.font = '700 10px Inter, Arial, sans-serif';
+          ctx.fillText(obstacle.name, p.x - 22, p.y + 3);
+        }
+
+        ctx.save();
+        ctx.setLineDash([5, 7]);
+        ctx.strokeStyle = 'rgba(197,139,58,.42)';
+        ctx.lineWidth = 1.3;
+        for (const module of this.modules) {
+          const first = this.toPixel(module.path[0], layout);
+          ctx.beginPath();
+          ctx.moveTo(first.x, first.y);
+          for (let i = 1; i < module.path.length; i += 1) {
+            const next = this.toPixel(module.path[i], layout);
+            ctx.lineTo(next.x, next.y);
+          }
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        const person = this.toPixel(this.person, layout);
+        ctx.beginPath();
+        ctx.arc(person.x, person.y, (this.person.radius + 0.18) * layout.unit, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(163,93,69,.12)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(163,93,69,.48)';
+        ctx.stroke();
+        ctx.fillStyle = '#d8b99b';
+        ctx.beginPath();
+        ctx.arc(person.x, person.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#2f3632';
+        ctx.fillRect(person.x - 5, person.y + 10, 10, 22);
+
+        for (const module of this.modules) {
+          const point = this.modulePoint(module, progress.move);
+          this.drawWorldRect(ctx, point.x, point.z, BASE, BASE, layout, colors[module.index % colors.length], 'rgba(21,24,21,.34)');
+          this.drawWorldRect(ctx, point.x, point.z, BASE + 0.1, BASE + 0.1, layout, null, 'rgba(163,93,69,.58)');
+          const label = this.toPixel(point, layout);
+          ctx.fillStyle = 'rgba(21,24,21,.78)';
+          ctx.font = '700 10px Inter, Arial, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(module.id, label.x, label.y + 3);
+          ctx.textAlign = 'start';
+        }
+
+        if (progress.phase === 'negotiating swap') {
+          this.drawSpeech(ctx, this.modulePoint(this.modules[3], 0), 'C4: route blocked', layout, -36);
+          this.drawSpeech(ctx, this.modulePoint(this.modules[6], 0), 'C7: swap slots', layout, 18);
+        }
+
+        ctx.fillStyle = 'rgba(30,107,74,.94)';
+        ctx.font = '700 12px Inter, Arial, sans-serif';
+        ctx.fillText('Target platform: 1.8m x 1.8m | base motion only', 16, view.height - 18);
+      }
+
+      drawSpeech(ctx, point, text, layout, yOffset) {
+        const p = this.toPixel(point, layout);
+        const w = 112;
+        const x = clamp(p.x - w / 2, 10, this.canvas2d.clientWidth - w - 10);
+        const y = clamp(p.y + yOffset, 48, this.canvas2d.clientHeight - 48);
+        ctx.fillStyle = 'rgba(255,253,250,.94)';
+        ctx.strokeStyle = 'rgba(30,107,74,.32)';
+        ctx.lineWidth = 1;
+        drawRoundRect(ctx, x, y, w, 28, 7);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(21,24,21,.82)';
+        ctx.font = '700 11px Inter, Arial, sans-serif';
+        ctx.fillText(text, x + 8, y + 18);
+      }
+
+      draw3d(progress) {
+        const rect = this.canvas3d.getBoundingClientRect();
+        const width = Math.max(1, rect.width);
+        const height = Math.max(1, rect.height);
+        this.renderer.setSize(width, height, false);
+        this.camera.aspect = width / height;
+        this.camera.fov = width < 640 ? 58 : 44;
+        this.camera.position.set(3.7, 3.6, 4.5);
+        this.camera.lookAt(0, 0.35, 0.4);
+        this.camera.updateProjectionMatrix();
+        this.moduleMeshes.forEach((mesh, index) => {
+          const point = this.modulePoint(this.modules[index], progress.move);
+          mesh.position.set(point.x, BASE_HEIGHT / 2, point.z);
+          mesh.material.emissive.setHex(progress.move > 0.98 ? 0x12391e : 0x000000);
+          mesh.material.emissiveIntensity = progress.move > 0.98 ? 0.08 : 0;
+        });
+        this.scene.rotation.y = 0.06 * Math.sin(performance.now() * 0.00025);
+        this.renderer.render(this.scene, this.camera);
+      }
+
+      update(time) {
+        const progress = this.currentProgress(time);
+        this.draw2d(progress);
+        this.draw3d(progress);
+        this.dialogues.forEach((bubble, index) => {
+          bubble.classList.toggle('active', index <= progress.dialogueIndex);
+        });
+        if (this.status) {
+          const safe = this.validatePlan(36).safe ? 'collision-safe' : 'needs repair';
+          const paused = this.paused ? 'paused' : 'running';
+          this.status.textContent = `Movement only | ${progress.phase} | C4/C7 swap | ${safe} | ${paused}`;
+        }
+      }
+    }
+
     class TransformableTableDemo {
       constructor(section, index) {
         this.section = section;
@@ -3431,8 +4143,8 @@ for p in plan.placements:
         for (let row = 0; row < 3; row += 1) {
           for (let col = 0; col < 3; col += 1) {
             const index = row * 3 + col;
-            const x = -2.2 + col * 0.78 + row * 0.04;
-            const z = -1.25 + row * 0.78;
+            const x = (col - 1) * BASE;
+            const z = (row - 1) * BASE;
             modules.push({
               id: `C${index + 1}`,
               index,
@@ -3453,8 +4165,8 @@ for p in plan.placements:
       planFor(dimensions) {
         return this.modules.map((module) => ({
           pose: {
-            x: (module.col - 1) * (dimensions.length / 3),
-            z: (module.row - 1) * (dimensions.width / 3),
+            x: (module.col - 1) * BASE,
+            z: (module.row - 1) * BASE,
           },
           top: {
             length: dimensions.length / 3,
@@ -3465,13 +4177,9 @@ for p in plan.placements:
       }
 
       sampleVisualState() {
-        const moveProgress = easeInOut(clamp((this.elapsed - commandMs) / moveMs, 0, 1));
-        const transformProgress = easeInOut(clamp((this.elapsed - commandMs - moveMs * 0.25) / transformMs, 0, 1));
+        const transformProgress = easeInOut(clamp((this.elapsed - commandMs) / transformMs, 0, 1));
         for (const module of this.modules) {
-          module.currentPose = {
-            x: lerp(module.startPose.x, module.goalPose.x, moveProgress),
-            z: lerp(module.startPose.z, module.goalPose.z, moveProgress),
-          };
+          module.currentPose = { ...module.goalPose };
           module.currentTop = {
             length: lerp(module.startTop.length, module.goalTop.length, transformProgress),
             width: lerp(module.startTop.width, module.goalTop.width, transformProgress),
@@ -3516,11 +4224,10 @@ for p in plan.placements:
           this.startCommand(randomDimension(this.dimensions));
         }
         return {
-          move: easeInOut(clamp((this.elapsed - commandMs) / moveMs, 0, 1)),
-          transform: easeInOut(clamp((this.elapsed - commandMs - moveMs * 0.25) / transformMs, 0, 1)),
+          move: 1,
+          transform: easeInOut(clamp((this.elapsed - commandMs) / transformMs, 0, 1)),
           phase: this.elapsed < commandMs ? 'command'
-            : this.elapsed < commandMs + moveMs * 0.55 ? 'moving'
-            : this.elapsed < commandMs + moveMs + transformMs ? 'transforming'
+            : this.elapsed < commandMs + transformMs ? 'top transforming'
             : 'locked',
         };
       }
@@ -3787,11 +4494,22 @@ for p in plan.placements:
       }
     }
 
+    const movementSection = document.querySelector('[data-movement-demo]');
+    const movementDemo = movementSection ? new MovementCoordinationDemo(movementSection) : null;
+    window.movementDemo = movementDemo;
+
     const transformDemos = Array.from(document.querySelectorAll('[data-transform-mechanism]'))
       .map((section, index) => new TransformableTableDemo(section, index));
     window.transformDemos = transformDemos;
 
     function animationLoop(time) {
+      if (movementDemo) {
+        if (movementDemo.section.classList.contains('active')) {
+          movementDemo.update(time);
+        } else {
+          movementDemo.lastTime = time;
+        }
+      }
       for (const demo of transformDemos) {
         if (demo.section.classList.contains('active')) {
           demo.update(time);
