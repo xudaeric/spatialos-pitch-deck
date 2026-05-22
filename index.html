@@ -889,6 +889,122 @@
       line-height: 1.35;
     }
 
+    .mode-segment {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid rgba(21, 24, 21, .12);
+      border-radius: 7px;
+      background: rgba(21, 24, 21, .05);
+    }
+
+    .mode-segment button {
+      min-height: 30px;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 820;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .mode-segment button.active {
+      background: var(--green);
+      color: #fffdf7;
+      box-shadow: 0 6px 16px rgba(30, 107, 74, .18);
+    }
+
+    .reference-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .reference-card {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid rgba(21, 24, 21, .12);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 250, .82);
+    }
+
+    .reference-media {
+      position: relative;
+      display: grid;
+      place-items: center;
+      height: 86px;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, rgba(21, 24, 21, .055) 1px, transparent 1px) 0 0 / 18px 18px,
+        linear-gradient(180deg, rgba(21, 24, 21, .045) 1px, transparent 1px) 0 0 / 18px 18px,
+        #eee9dc;
+    }
+
+    .reference-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .reference-media img.reference-failed {
+      display: none;
+    }
+
+    .reference-fallback {
+      position: absolute;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 10px;
+      color: rgba(21, 24, 21, .54);
+      font-size: 11px;
+      font-weight: 760;
+      text-align: center;
+    }
+
+    .reference-media img.reference-failed + .reference-fallback {
+      display: grid;
+    }
+
+    .reference-schematic svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .reference-meta {
+      display: grid;
+      gap: 3px;
+      padding: 8px 9px;
+    }
+
+    .reference-meta strong {
+      color: var(--graphite);
+      font-size: 11px;
+      font-weight: 840;
+      text-transform: uppercase;
+    }
+
+    .reference-meta span,
+    .reference-meta a {
+      min-width: 0;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 720;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+
+    .reference-meta a {
+      color: var(--green);
+      text-decoration: none;
+    }
+
     .transform-stage-grid {
       display: grid;
       grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
@@ -942,6 +1058,40 @@
     .transform-view.dark .view-label {
       background: rgba(17, 21, 15, .58);
       color: #dcebd7;
+    }
+
+    .mechanism-overlay {
+      position: absolute;
+      z-index: 3;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    .analysis-chip {
+      min-height: 26px;
+      padding: 5px 8px;
+      border: 1px solid rgba(220, 235, 215, .18);
+      border-radius: 6px;
+      background: rgba(17, 21, 15, .62);
+      color: #dcebd7;
+      font-size: 11px;
+      font-weight: 760;
+      line-height: 1.25;
+    }
+
+    .analysis-chip.safe {
+      border-color: rgba(116, 166, 111, .46);
+      background: rgba(30, 107, 74, .7);
+    }
+
+    .analysis-chip.risk {
+      border-color: rgba(163, 93, 69, .74);
+      background: rgba(120, 44, 37, .82);
     }
 
     .movement-dialogue {
@@ -1129,6 +1279,10 @@
       .transform-stage-grid {
         min-height: 560px;
       }
+
+      .reference-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     @media (max-width: 680px) {
@@ -1191,6 +1345,11 @@
       .transform-demo,
       .transform-stage-grid,
       .transform-controls {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .reference-grid,
+      .mode-segment {
         grid-template-columns: minmax(0, 1fr);
       }
 
@@ -3414,9 +3573,10 @@ for p in plan.placements:
     const MAX_SIZE = 1.2;
     const STEP = 0.1;
     const commandMs = 850;
+    const analysisMs = 900;
     const transformMs = 2500;
     const holdMs = 1800;
-    const totalMs = commandMs + transformMs + holdMs;
+    const totalMs = commandMs + analysisMs + transformMs + holdMs;
     const colors = ['#fffef8', '#dfe7e1', '#ead9bd', '#dce4e5', '#f1e5ba', '#d9d7ce', '#e7efe4', '#ded8cb', '#f5efe2'];
     const mechanismNames = {
       geometric: 'Two-axis geometric sliding',
@@ -3427,6 +3587,72 @@ for p in plan.placements:
       electric: 'Electric single-axis',
       lift: 'Lift + unfold',
       origami: 'Origami wings',
+    };
+    const MechanismReferenceCatalog = {
+      geometric: {
+        productPhoto: 'https://ozzio.com/wp-content/uploads/2021/08/4x4--optimized.webp',
+        productAlt: 'Ozzio 4x4 extendable table reference',
+        engineeringReference: 'https://www.format-store.com/en/prod/tables/tables-86/4x4-table-ozzio-italia.html',
+        sourceName: 'Ozzio 4x4 / technical product page',
+        sourceUrl: 'https://ozzio.com/collezione/prodotti/tavoli-allungabili/tavolo-allungabile-4x4/',
+        mechanismNotes: 'Geometric sliding plates extend in both width and length.',
+      },
+      butterfly: {
+        productPhoto: 'https://resourcefurniture.com/cdn/shop/products/2181-1100x863.jpg?v=1676399491&width=1024',
+        productAlt: 'Resource Furniture Plurimo table reference',
+        engineeringReference: 'https://resourcefurniture.com/products/plurimo',
+        sourceName: 'Resource Furniture Plurimo',
+        sourceUrl: 'https://resourcefurniture.com/products/plurimo',
+        mechanismNotes: 'Telescopic frame with stored butterfly leaves.',
+      },
+      book: {
+        productPhoto: 'https://img.edilportale.com/product-thumbs/b_Mobili-Fiver_ELDORADO_cmsTUPuQ3r.jpeg',
+        productAlt: 'Mobili Fiver Eldorado flip-top table reference',
+        engineeringReference: 'https://www.mobilifiver.com/na/eng/products/tables/extendable-tables/eldorado/',
+        sourceName: 'Mobili Fiver Eldorado / Archiproducts image',
+        sourceUrl: 'https://www.mobilifiver.com/na/eng/products/tables/extendable-tables/eldorado/',
+        mechanismNotes: 'Flip-top leaf opens like a book from square to rectangle.',
+      },
+      console: {
+        productPhoto: 'https://expandfurniture.com/cdn/shop/files/Flip_console_to_dinner_table_in_compact_form_doubles_in_size_for_dining.jpg?v=1778282928',
+        productAlt: 'Expand Furniture console-to-table reference',
+        engineeringReference: 'https://expandfurniture.com/products/console-to-table',
+        sourceName: 'Expand Furniture Console to Table',
+        sourceUrl: 'https://expandfurniture.com/products/console-to-table',
+        mechanismNotes: 'Stored console top folds out with support legs.',
+      },
+      'center-leaf': {
+        productPhoto: 'https://transformertable.com/cdn/shop/files/Transformer-table-scandinavian-oak-the-table-functionality-lifestyle-4x3_450x450.jpg?v=1750128311',
+        productAlt: 'Transformer Table center-leaf extension reference',
+        engineeringReference: 'https://transformertable.com/products/transformer-solid-wood-extendable-dining-table',
+        sourceName: 'Transformer Table / center leaf logic',
+        sourceUrl: 'https://transformertable.com/products/transformer-solid-wood-extendable-dining-table',
+        mechanismNotes: 'Low-friction rails separate halves while center panels fill the span.',
+      },
+      electric: {
+        productPhoto: 'https://modloft.com/cdn/shop/files/transparent_DT-RMA-71-WHT-PORCLN-BRNZ_1.png?v=1757355111',
+        productAlt: 'Modloft Roma motorized extension reference',
+        engineeringReference: 'https://modloft.com/collections/all/products/roma-dining-table',
+        sourceName: 'Modloft Roma motorized dining table',
+        sourceUrl: 'https://modloft.com/collections/all/products/roma-dining-table',
+        mechanismNotes: 'Motor carriage synchronizes rails and extension leaf timing.',
+      },
+      lift: {
+        productPhoto: 'https://expandfurniture.com/cdn/shop/files/Motorized-electric-Box-Coffee-table-Marble.jpg?v=1740486088',
+        productAlt: 'Expand Furniture Motorized Box Coffee reference',
+        engineeringReference: 'https://expandfurniture.com/products/motorized-box-coffee',
+        sourceName: 'Expand Furniture Motorized Box Coffee',
+        sourceUrl: 'https://expandfurniture.com/products/motorized-box-coffee',
+        mechanismNotes: 'Powered lift column raises the top before leaves extend.',
+      },
+      origami: {
+        productPhoto: 'https://competition.adesignaward.com/award-winner-design.php?ID=68064',
+        productAlt: 'Origami Kinetic Table concept reference',
+        engineeringReference: 'https://competition.adesignaward.com/design.php?ID=68064',
+        sourceName: 'A Design Award / Origami Kinetic Table',
+        sourceUrl: 'https://competition.adesignaward.com/design.php?ID=68064',
+        mechanismNotes: 'Rotating center plate and four hidden wings expand the top.',
+      },
     };
 
     function clamp(value, min, max) {
@@ -3484,6 +3710,38 @@ for p in plan.placements:
       ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
       ctx.lineTo(x, y + radius);
       ctx.quadraticCurveTo(x, y, x + radius, y);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function engineeringSvg(mechanism) {
+      const common = '<rect x="42" y="28" width="76" height="76" rx="5" fill="#fffdf7" stroke="#a35d45" stroke-width="2"/><circle cx="80" cy="66" r="4" fill="#1e6b4a"/>';
+      const rail = '<path d="M26 66H134M80 12V120" stroke="#7e8a8b" stroke-width="5" stroke-linecap="round"/>';
+      const arrow = '<path d="M22 20h28M22 20l9-7M22 20l9 7M138 112h-28M138 112l-9-7M138 112l-9 7" stroke="#1e6b4a" stroke-width="3" fill="none" stroke-linecap="round"/>';
+      const shapes = {
+        geometric: `${rail}<rect x="24" y="10" width="44" height="44" rx="4" fill="#d9e6dc" stroke="#1e6b4a"/><rect x="92" y="78" width="44" height="44" rx="4" fill="#ead9bd" stroke="#1e6b4a"/>${arrow}`,
+        butterfly: '<path d="M20 66h120" stroke="#7e8a8b" stroke-width="5"/><path d="M38 44l42 22-42 22zM122 44L80 66l42 22z" fill="#ead9bd" stroke="#c58b3a" stroke-width="2"/><path d="M80 24v84" stroke="#1e6b4a" stroke-width="3" stroke-dasharray="5 5"/>',
+        book: '<path d="M48 28v76" stroke="#343a33" stroke-width="5"/><path d="M52 30h58v72H52z" fill="#fffef8" stroke="#a35d45"/><path d="M58 30l68 10v52l-68 10z" fill="#ead9bd" stroke="#c58b3a" stroke-width="2"/><path d="M50 20c30 0 60 6 84 18" stroke="#1e6b4a" stroke-width="3" fill="none"/>',
+        console: '<rect x="34" y="22" width="92" height="44" rx="4" fill="#fffef8" stroke="#a35d45"/><path d="M34 66h92v44H34z" fill="#ead9bd" stroke="#c58b3a" stroke-width="2"/><path d="M48 84v34M112 84v34" stroke="#7e8a8b" stroke-width="5"/><path d="M80 66v46" stroke="#1e6b4a" stroke-width="3" stroke-dasharray="4 5"/>',
+        'center-leaf': '<path d="M18 66h124" stroke="#7e8a8b" stroke-width="5"/><rect x="20" y="34" width="46" height="64" fill="#fffef8" stroke="#a35d45"/><rect x="94" y="34" width="46" height="64" fill="#fffef8" stroke="#a35d45"/><rect x="70" y="42" width="20" height="48" fill="#d9e6dc" stroke="#1e6b4a"/><path d="M66 66h-24M94 66h24M80 98V76" stroke="#1e6b4a" stroke-width="3" fill="none"/>',
+        electric: '<path d="M18 66h124" stroke="#343a33" stroke-width="5"/><rect x="20" y="36" width="44" height="60" fill="#fffef8" stroke="#a35d45"/><rect x="96" y="36" width="44" height="60" fill="#fffef8" stroke="#a35d45"/><rect x="70" y="56" width="20" height="20" rx="3" fill="#1e6b4a"/><circle cx="118" cy="22" r="8" fill="#74a66f"/><path d="M118 30v24" stroke="#74a66f" stroke-width="3"/>',
+        lift: '<rect x="42" y="24" width="76" height="24" fill="#fffef8" stroke="#a35d45"/><path d="M60 104L100 52M100 104L60 52" stroke="#7e8a8b" stroke-width="5"/><rect x="68" y="78" width="24" height="44" fill="#d9e6dc" stroke="#1e6b4a"/><path d="M126 92V42M126 42l-8 10M126 42l8 10" stroke="#1e6b4a" stroke-width="3" fill="none"/>',
+        origami: '<circle cx="80" cy="66" r="16" fill="#d9e6dc" stroke="#1e6b4a" stroke-width="2"/><path d="M80 14l18 38H62zM80 118L62 80h36zM28 66l38-18v36zM132 66L94 84V48z" fill="#ead9bd" stroke="#c58b3a" stroke-width="2"/><path d="M104 20c22 18 29 43 18 69" stroke="#1e6b4a" stroke-width="3" fill="none"/><path d="M122 89l-1-14M122 89l-13-5" stroke="#1e6b4a" stroke-width="3" fill="none"/>',
+      };
+      return `<svg viewBox="0 0 160 132" role="img" aria-label="${escapeHtml(mechanismNames[mechanism] || 'mechanism')} engineering schematic">${common}${shapes[mechanism] || rail}</svg>`;
+    }
+
+    function boxesOverlap3d(a, b, epsilon = 0.003) {
+      const x = Math.min(a.max.x, b.max.x) - Math.max(a.min.x, b.min.x);
+      const y = Math.min(a.max.y, b.max.y) - Math.max(a.min.y, b.min.y);
+      const z = Math.min(a.max.z, b.max.z) - Math.max(a.min.z, b.min.z);
+      return x > epsilon && y > epsilon && z > epsilon;
     }
 
     class MovementCoordinationDemo {
@@ -4093,6 +4351,11 @@ for p in plan.placements:
         this.lengthInput = section.querySelector('[data-length-input]');
         this.widthInput = section.querySelector('[data-width-input]');
         this.pauseButton = section.querySelector('[data-pause-toggle]');
+        this.controls = section.querySelector('[data-transform-controls]');
+        this.reference = MechanismReferenceCatalog[this.mechanism];
+        this.mode = 'transform';
+        this.collisionUnsafe = false;
+        this.collisionFailures = [];
         this.paused = false;
         this.elapsed = 0;
         this.lastTime = performance.now();
@@ -4101,9 +4364,54 @@ for p in plan.placements:
           width: snapDimension(this.widthInput.value),
         };
         this.modules = this.createModules();
+        this.renderModeControls();
+        this.renderReferences();
         this.setup3d();
         this.bindControls(section);
         this.startCommand(this.dimensions, true);
+      }
+
+      renderModeControls() {
+        if (!this.controls || !this.status) return;
+        const segment = document.createElement('div');
+        segment.className = 'mode-segment';
+        segment.setAttribute('aria-label', 'Transform view mode');
+        segment.innerHTML = ['transform', 'exploded', 'collision'].map((mode) => (
+          `<button type="button" data-transform-mode="${mode}" class="${mode === this.mode ? 'active' : ''}">${mode}</button>`
+        )).join('');
+        this.status.before(segment);
+        this.modeButtons = Array.from(segment.querySelectorAll('[data-transform-mode]'));
+      }
+
+      renderReferences() {
+        if (!this.controls || !this.reference) return;
+        const referenceGrid = document.createElement('div');
+        referenceGrid.className = 'reference-grid';
+        referenceGrid.innerHTML = `
+          <article class="reference-card">
+            <div class="reference-media">
+              <img src="${escapeHtml(this.reference.productPhoto)}" alt="${escapeHtml(this.reference.productAlt)}" loading="lazy">
+              <span class="reference-fallback">Remote reference image</span>
+            </div>
+            <div class="reference-meta">
+              <strong>Real reference</strong>
+              <span>${escapeHtml(this.reference.sourceName)}</span>
+              <a href="${escapeHtml(this.reference.sourceUrl)}" target="_blank" rel="noreferrer">Source link</a>
+            </div>
+          </article>
+          <article class="reference-card">
+            <div class="reference-media reference-schematic">${engineeringSvg(this.mechanism)}</div>
+            <div class="reference-meta">
+              <strong>Engineering reference</strong>
+              <span>Source-informed schematic, redrawn for this demo</span>
+              <a href="${escapeHtml(this.reference.engineeringReference)}" target="_blank" rel="noreferrer">Engineering source</a>
+            </div>
+          </article>
+        `;
+        referenceGrid.querySelectorAll('img').forEach((img) => {
+          img.addEventListener('error', () => img.classList.add('reference-failed'));
+        });
+        this.controls.after(referenceGrid);
       }
 
       bindControls(section) {
@@ -4126,8 +4434,20 @@ for p in plan.placements:
             input.value = snapDimension(input.value).toFixed(1);
           });
           input.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') this.startCommand(this.readInputs());
+          if (event.key === 'Enter') this.startCommand(this.readInputs());
           });
+        }
+        for (const button of this.modeButtons || []) {
+          button.addEventListener('click', () => {
+            this.mode = button.dataset.transformMode || 'transform';
+            this.updateModeButtons();
+          });
+        }
+      }
+
+      updateModeButtons() {
+        for (const button of this.modeButtons || []) {
+          button.classList.toggle('active', button.dataset.transformMode === this.mode);
         }
       }
 
@@ -4165,7 +4485,7 @@ for p in plan.placements:
       }
 
       sampleVisualState() {
-        const transformProgress = easeInOut(clamp((this.elapsed - commandMs) / transformMs, 0, 1));
+        const transformProgress = easeInOut(clamp((this.elapsed - commandMs - analysisMs) / transformMs, 0, 1));
         for (const module of this.modules) {
           module.currentPose = { ...module.goalPose };
           module.currentTop = {
@@ -4211,11 +4531,16 @@ for p in plan.placements:
           this.commitGoal();
           this.startCommand(randomDimension(this.dimensions));
         }
+        const analysis = easeInOut(clamp((this.elapsed - commandMs) / analysisMs, 0, 1));
+        const transform = easeInOut(clamp((this.elapsed - commandMs - analysisMs) / transformMs, 0, 1));
         return {
           move: 1,
-          transform: easeInOut(clamp((this.elapsed - commandMs) / transformMs, 0, 1)),
+          transform,
+          analysis: this.mode === 'exploded' ? 1 : (this.elapsed < commandMs + analysisMs ? analysis : 0),
+          showCollision: this.mode === 'collision',
           phase: this.elapsed < commandMs ? 'command'
-            : this.elapsed < commandMs + transformMs ? 'top transforming'
+            : this.elapsed < commandMs + analysisMs ? 'exploded analysis'
+            : this.elapsed < commandMs + analysisMs + transformMs ? 'top transforming'
             : 'locked',
         };
       }
@@ -4259,6 +4584,24 @@ for p in plan.placements:
         );
         this.target3d.position.y = BASE_HEIGHT + 0.09;
         this.scene.add(this.target3d);
+        this.arrowGroup = new THREE.Group();
+        this.scene.add(this.arrowGroup);
+        this.arrows = Array.from({ length: 4 }, () => {
+          const arrow = new THREE.ArrowHelper(
+            new THREE.Vector3(1, 0, 0),
+            new THREE.Vector3(0, BASE_HEIGHT + 0.22, 0),
+            0.35,
+            0x74a66f,
+            0.09,
+            0.045
+          );
+          arrow.visible = false;
+          this.arrowGroup.add(arrow);
+          return arrow;
+        });
+        this.overlay = document.createElement('div');
+        this.overlay.className = 'mechanism-overlay';
+        this.canvas3d.parentElement.append(this.overlay);
         this.moduleMeshes = this.modules.map((module) => this.makeModuleMesh(module));
       }
 
@@ -4343,13 +4686,29 @@ for p in plan.placements:
           group.add(part);
           return part;
         });
+        const collisionBoxes = Array.from({ length: 9 }, () => {
+          const box = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 1, 1),
+            new THREE.MeshBasicMaterial({
+              color: 0x74a66f,
+              transparent: true,
+              opacity: 0.12,
+              wireframe: true,
+              depthTest: false,
+            })
+          );
+          box.visible = false;
+          box.userData.collisionId = '';
+          group.add(box);
+          return box;
+        });
         const outline = new THREE.LineSegments(
           new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)),
           new THREE.LineBasicMaterial({ color: 0x151815, transparent: true, opacity: 0.22 })
         );
         base.add(outline);
         this.scene.add(group);
-        return { group, base, plinth, doorLine, drawerLine, handle, wheels, top, panels, rail, motor, details };
+        return { group, base, plinth, doorLine, drawerLine, handle, wheels, top, panels, rail, motor, details, collisionBoxes };
       }
 
       layout2d(view) {
@@ -4397,6 +4756,27 @@ for p in plan.placements:
           drawRoundRect(ctx, -w / 2, -h / 2, w, h, 4);
           ctx.stroke();
         }
+        ctx.restore();
+      }
+
+      drawArrow2d(ctx, from, to, layout, color = 'rgba(30,107,74,.78)') {
+        const a = this.toPixel(from, layout);
+        const b = this.toPixel(to, layout);
+        const angle = Math.atan2(b.y - a.y, b.x - a.x);
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(b.x - 8 * Math.cos(angle - .5), b.y - 8 * Math.sin(angle - .5));
+        ctx.lineTo(b.x - 8 * Math.cos(angle + .5), b.y - 8 * Math.sin(angle + .5));
+        ctx.closePath();
+        ctx.fill();
         ctx.restore();
       }
 
@@ -4452,6 +4832,20 @@ for p in plan.placements:
         }
         ctx.restore();
 
+        const arrowColor = this.collisionUnsafe ? 'rgba(163,93,69,.78)' : 'rgba(30,107,74,.72)';
+        if (this.mechanism === 'geometric' || this.mechanism === 'origami') {
+          this.drawArrow2d(ctx, { x: pose.x - .12, z: pose.z - .12 }, { x: pose.x - .36, z: pose.z - .36 }, layout, arrowColor);
+          this.drawArrow2d(ctx, { x: pose.x + .12, z: pose.z + .12 }, { x: pose.x + .36, z: pose.z + .36 }, layout, arrowColor);
+        } else if (this.mechanism === 'butterfly' || this.mechanism === 'console') {
+          this.drawArrow2d(ctx, { x: pose.x, z: pose.z - .08 }, { x: pose.x, z: pose.z - .42 }, layout, arrowColor);
+          this.drawArrow2d(ctx, { x: pose.x, z: pose.z + .08 }, { x: pose.x, z: pose.z + .42 }, layout, arrowColor);
+        } else if (this.mechanism === 'lift') {
+          this.drawArrow2d(ctx, { x: pose.x + .42, z: pose.z + .18 }, { x: pose.x + .42, z: pose.z - .26 }, layout, arrowColor);
+        } else {
+          this.drawArrow2d(ctx, { x: pose.x - .15, z: pose.z }, { x: pose.x - .46, z: pose.z }, layout, arrowColor);
+          this.drawArrow2d(ctx, { x: pose.x + .15, z: pose.z }, { x: pose.x + .46, z: pose.z }, layout, arrowColor);
+        }
+
         this.drawRect2d(ctx, pose.x, pose.z, BASE, BASE, layout, null, 'rgba(163,93,69,.72)', 1.4);
         const label = this.toPixel(pose, layout);
         ctx.fillStyle = 'rgba(21,24,21,.76)';
@@ -4471,16 +4865,214 @@ for p in plan.placements:
         ctx.font = '700 12px Inter, Arial, sans-serif';
         ctx.fillText(`Single cabinet top: ${this.dimensions.length.toFixed(1)}m x ${this.dimensions.width.toFixed(1)}m`, 16, view.height - 18);
         for (const module of this.modules) {
-          this.drawMechanism2d(ctx, this.moduleState(module, progress), module, progress, layout);
+          const state = this.moduleState(module, progress);
+          this.drawMechanism2d(ctx, state, module, progress, layout);
+          this.drawCollisionBodies2d(ctx, state, progress, layout);
         }
       }
 
-      update3dModule(mesh, state, module, progress) {
+      collisionBodiesFor(top, transformProgress) {
+        const p = clamp(transformProgress, 0, 1);
+        const deckY = BASE_HEIGHT + 0.105 + top.lift;
+        const body = (id, x, y, z, sx, sy, sz, color = 0x74a66f) => ({
+          id,
+          x,
+          y,
+          z,
+          sx: Math.max(0.012, sx),
+          sy: Math.max(0.012, sy),
+          sz: Math.max(0.012, sz),
+          color,
+        });
+        const bodies = [body('cabinet-core', 0, BASE_HEIGHT / 2, 0, BASE, BASE_HEIGHT, BASE, 0xa35d45)];
+        const halfLength = Math.max(0.08, top.length / 2 - 0.014);
+        const halfWidth = Math.max(0.08, top.width / 2 - 0.014);
+
+        if (this.mechanism === 'geometric') {
+          bodies.push(
+            body('plate-nw', -top.length / 4, deckY, -top.width / 4, halfLength, 0.042, halfWidth),
+            body('plate-ne', top.length / 4, deckY, -top.width / 4, halfLength, 0.042, halfWidth),
+            body('plate-sw', -top.length / 4, deckY, top.width / 4, halfLength, 0.042, halfWidth),
+            body('plate-se', top.length / 4, deckY, top.width / 4, halfLength, 0.042, halfWidth),
+          );
+        } else if (this.mechanism === 'butterfly') {
+          const leafDepth = Math.max(0.04, top.width * 0.16 * p);
+          bodies.push(
+            body('left-top-half', 0, deckY, -top.width * 0.27, top.length * 0.92, 0.04, top.width * 0.34),
+            body('right-top-half', 0, deckY, top.width * 0.27, top.length * 0.92, 0.04, top.width * 0.34),
+          );
+          if (p > 0.12) {
+            bodies.push(
+              body('butterfly-leaf-a', 0, deckY + 0.07, -top.width * 0.08, top.length * 0.76, 0.038, leafDepth, 0xc58b3a),
+              body('butterfly-leaf-b', 0, deckY + 0.07, top.width * 0.08, top.length * 0.76, 0.038, leafDepth, 0xc58b3a),
+            );
+          }
+        } else if (this.mechanism === 'book') {
+          const movingLength = Math.max(0.04, top.length * 0.46 * p);
+          bodies.push(
+            body('hinge-side-top', -top.length * 0.22, deckY, 0, top.length * 0.44, 0.04, top.width * 0.92),
+            body('flip-leaf-clearance', top.length * 0.12 + movingLength / 2, deckY + 0.08, 0, movingLength, 0.038, top.width * 0.86, 0xc58b3a),
+          );
+        } else if (this.mechanism === 'console') {
+          const foldDepth = Math.max(0.04, top.width * 0.25 * p);
+          bodies.push(
+            body('stored-top', 0, deckY, -top.width * 0.16, top.length * 0.88, 0.04, top.width * 0.36),
+            body('fold-out-leaf', 0, deckY + 0.07, top.width * 0.18 + foldDepth / 2, top.length * 0.86, 0.038, foldDepth, 0xc58b3a),
+            body('left-support-leg', -top.length * 0.36, BASE_HEIGHT * 0.5 * p, top.width * 0.42 * p, 0.05, Math.max(0.04, BASE_HEIGHT * p), 0.05, 0x7e8a8b),
+            body('right-support-leg', top.length * 0.36, BASE_HEIGHT * 0.5 * p, top.width * 0.42 * p, 0.05, Math.max(0.04, BASE_HEIGHT * p), 0.05, 0x7e8a8b),
+          );
+        } else if (this.mechanism === 'center-leaf' || this.mechanism === 'electric') {
+          const centerLength = Math.max(0.05, (top.length - BASE) * 0.7 * p);
+          const sideLength = Math.max(0.05, (top.length - centerLength) / 2 - 0.012);
+          bodies.push(
+            body('left-slide-top', -centerLength / 2 - sideLength / 2, deckY, 0, sideLength, 0.04, top.width * 0.92),
+            body('right-slide-top', centerLength / 2 + sideLength / 2, deckY, 0, sideLength, 0.04, top.width * 0.92),
+            body(this.mechanism === 'electric' ? 'motorized-center-leaf' : 'center-leaf', 0, deckY + 0.08, 0, centerLength, 0.038, top.width * 0.88, 0x1e6b4a),
+          );
+          if (this.mechanism === 'electric') {
+            bodies.push(body('motor-carriage', -top.length * 0.36 + top.length * 0.72 * p, BASE_HEIGHT + 0.17, -top.width * 0.62, 0.12, 0.08, 0.07, 0x74a66f));
+          }
+        } else if (this.mechanism === 'lift') {
+          bodies.push(
+            body('lift-column', 0, BASE_HEIGHT * 0.5 + top.lift * 0.5, 0, 0.14, Math.max(0.12, top.lift + 0.14), 0.14, 0x1e6b4a),
+            body('raised-top', 0, deckY + 0.08, 0, top.length * 0.92, 0.04, top.width * 0.92),
+          );
+        } else if (this.mechanism === 'origami') {
+          const wingW = Math.max(0.04, top.width * 0.23 * p);
+          const wingL = Math.max(0.04, top.length * 0.23 * p);
+          bodies.push(
+            body('rotating-center', 0, deckY, 0, BASE * 0.72, 0.04, BASE * 0.72, 0x1e6b4a),
+            body('north-wing', 0, deckY + 0.08, -BASE * 0.32 - wingW / 2, top.length * 0.32, 0.038, wingW, 0xc58b3a),
+            body('south-wing', 0, deckY + 0.08, BASE * 0.32 + wingW / 2, top.length * 0.32, 0.038, wingW, 0xc58b3a),
+            body('west-wing', -BASE * 0.32 - wingL / 2, deckY + 0.08, 0, wingL, 0.038, top.width * 0.32, 0xc58b3a),
+            body('east-wing', BASE * 0.32 + wingL / 2, deckY + 0.08, 0, wingL, 0.038, top.width * 0.32, 0xc58b3a),
+          );
+        } else {
+          bodies.push(body('top', 0, deckY, 0, top.length, 0.04, top.width));
+        }
+        return bodies;
+      }
+
+      collisionAllowed(a, b) {
+        const pair = [a, b].sort().join('/');
+        return new Set([
+          'cabinet-core/left-support-leg',
+          'cabinet-core/right-support-leg',
+          'cabinet-core/lift-column',
+        ]).has(pair);
+      }
+
+      drawCollisionBodies2d(ctx, state, progress, layout) {
+        if (this.mode !== 'collision' && !this.collisionUnsafe) return;
+        const bodies = this.collisionBodiesFor(state.top, progress.transform);
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        for (const collision of bodies) {
+          if (collision.id === 'cabinet-core') continue;
+          this.drawRect2d(
+            ctx,
+            state.pose.x + collision.x,
+            state.pose.z + collision.z,
+            collision.sx,
+            collision.sz,
+            layout,
+            this.collisionUnsafe ? 'rgba(163,93,69,.08)' : 'rgba(116,166,111,.07)',
+            this.collisionUnsafe ? 'rgba(163,93,69,.82)' : 'rgba(30,107,74,.72)',
+            1.2
+          );
+        }
+        ctx.restore();
+      }
+
+      applyCollisionBodies(mesh, bodies, forceVisible = false) {
+        mesh.collisionBoxes.forEach((box) => {
+          box.visible = false;
+          box.userData.collisionId = '';
+        });
+        mesh.activeCollisionBoxes = [];
+        bodies.forEach((collision, index) => {
+          const box = mesh.collisionBoxes[index];
+          if (!box) return;
+          box.visible = forceVisible || this.mode === 'collision' || this.collisionUnsafe;
+          box.userData.collisionId = collision.id;
+          box.position.set(collision.x, collision.y, collision.z);
+          box.scale.set(collision.sx, collision.sy, collision.sz);
+          box.material.color.set(collision.color);
+          box.material.opacity = collision.id === 'cabinet-core' ? 0.08 : 0.16;
+          mesh.activeCollisionBoxes.push(box);
+        });
+      }
+
+      checkCollisionBoxes(mesh) {
+        const sceneRotation = this.scene.rotation.y;
+        this.scene.rotation.y = 0;
+        this.scene.updateMatrixWorld(true);
+        mesh.group.updateMatrixWorld(true);
+        const boxes = (mesh.activeCollisionBoxes || []).map((box) => ({
+          id: box.userData.collisionId,
+          mesh: box,
+          box: new THREE.Box3().setFromObject(box),
+        }));
+        const failures = [];
+        const involved = new Set();
+        for (let a = 0; a < boxes.length; a += 1) {
+          for (let b = a + 1; b < boxes.length; b += 1) {
+            if (this.collisionAllowed(boxes[a].id, boxes[b].id)) continue;
+            if (boxesOverlap3d(boxes[a].box, boxes[b].box)) {
+              failures.push(`${boxes[a].id}/${boxes[b].id}`);
+              involved.add(boxes[a].id);
+              involved.add(boxes[b].id);
+            }
+          }
+        }
+        for (const item of boxes) {
+          item.mesh.material.color.set(involved.has(item.id) ? 0xa35d45 : 0x74a66f);
+          item.mesh.material.opacity = involved.has(item.id) ? 0.34 : (item.id === 'cabinet-core' ? 0.08 : 0.16);
+        }
+        this.scene.rotation.y = sceneRotation;
+        this.scene.updateMatrixWorld(true);
+        return { safe: failures.length === 0, failures };
+      }
+
+      validateCollisionPlan(samples = 72) {
+        const mesh = this.moduleMeshes[0];
+        const module = this.modules[0];
+        const failures = [];
+        for (let i = 0; i <= samples; i += 1) {
+          const t = i / samples;
+          const state = {
+            pose: { x: 0, z: 0 },
+            top: {
+              length: lerp(BASE, this.dimensions.length, t),
+              width: lerp(BASE, this.dimensions.width, t),
+              lift: this.mechanism === 'lift' ? 0.34 * t : 0,
+            },
+          };
+          const progress = { transform: t, analysis: 0, showCollision: true, phase: 'top transforming' };
+          this.update3dModule(mesh, state, module, progress, true);
+          const check = this.checkCollisionBoxes(mesh);
+          if (!check.safe) failures.push(...check.failures.map((failure) => `${failure}@${t.toFixed(2)}`));
+        }
+        this.collisionUnsafe = failures.length > 0;
+        this.collisionFailures = failures.slice(0, 4);
+        return { safe: failures.length === 0, failures };
+      }
+
+      update3dModule(mesh, state, module, progress, validationOnly = false) {
         const { pose, top } = state;
         const p = progress.transform;
+        const explode = this.mode === 'exploded' ? 1 : (progress.analysis || 0);
+        const explodeVector = (x, z, amount = 0.08) => {
+          const length = Math.hypot(x, z);
+          if (!length) return { x, z };
+          return {
+            x: x + (x / length) * explode * amount,
+            z: z + (z / length) * explode * amount,
+          };
+        };
         mesh.group.position.set(pose.x, 0, pose.z);
         mesh.top.visible = true;
-        mesh.top.position.set(0, BASE_HEIGHT + 0.045 + top.lift, 0);
+        mesh.top.position.set(0, BASE_HEIGHT + 0.045 + top.lift + explode * 0.035, 0);
         mesh.top.scale.set(top.length, 0.055, top.width);
         mesh.top.rotation.set(0, this.mechanism === 'origami' ? p * Math.PI / 4 : 0, 0);
         mesh.top.material.color.set(colors[module.index % colors.length]);
@@ -4494,16 +5086,18 @@ for p in plan.placements:
         mesh.motor.visible = false;
 
         const setPanel = (panel, x, z, sx, sz, y = BASE_HEIGHT + 0.095 + top.lift, rx = 0, ry = 0, rz = 0) => {
+          const exploded = explodeVector(x, z, 0.11);
           panel.visible = true;
-          panel.position.set(x, y, z);
+          panel.position.set(exploded.x, y + explode * 0.06, exploded.z);
           panel.scale.set(Math.max(0.01, sx), 0.04, Math.max(0.01, sz));
           panel.rotation.set(rx, ry, rz);
         };
         const setDetail = (index, x, y, z, sx, sy, sz, color = 0x7e8a8b, rx = 0, ry = 0, rz = 0, opacity = 0.76) => {
           const part = mesh.details[index];
           if (!part) return;
+          const exploded = explodeVector(x, z, 0.06);
           part.visible = true;
-          part.position.set(x, y, z);
+          part.position.set(exploded.x, y + explode * 0.035, exploded.z);
           part.scale.set(Math.max(0.01, sx), Math.max(0.01, sy), Math.max(0.01, sz));
           part.rotation.set(rx, ry, rz);
           part.material.color.set(color);
@@ -4569,11 +5163,74 @@ for p in plan.placements:
           mesh.rail.position.set(0, BASE_HEIGHT + 0.075, 0);
           mesh.rail.scale.set(top.length * .9, .035, .045);
           mesh.motor.visible = true;
-          mesh.motor.position.set(-top.length * .36 + top.length * .72 * p, BASE_HEIGHT + 0.13, 0);
+          mesh.motor.position.set(-top.length * .36 + top.length * .72 * p, BASE_HEIGHT + 0.13 + explode * 0.035, -top.width * .58 - explode * 0.08);
           mesh.motor.scale.set(.1, .08, .12);
-          setDetail(3, 0, BASE_HEIGHT + .18, -BASE * .42, .42, .024, .018, 0x343a33);
-          setDetail(4, top.length * .43, BASE_HEIGHT + .16, -BASE * .39, .055, .055, .055, 0x74a66f);
+          setDetail(3, 0, BASE_HEIGHT + .18, -top.width * .5, .42, .024, .018, 0x343a33);
+          setDetail(4, top.length * .43, BASE_HEIGHT + .16, -top.width * .64, .055, .055, .055, 0x74a66f);
         }
+
+        const collisionBodies = this.collisionBodiesFor(top, p);
+        this.applyCollisionBodies(mesh, collisionBodies, progress.showCollision || validationOnly);
+        const check = this.checkCollisionBoxes(mesh);
+        this.collisionUnsafe = !check.safe;
+        this.collisionFailures = check.failures.slice(0, 4);
+        if (!validationOnly && !check.safe) {
+          this.paused = true;
+          this.pauseButton.textContent = 'Resume animation';
+        }
+      }
+
+      setArrow(index, origin, direction, length, color = 0x74a66f) {
+        const arrow = this.arrows[index];
+        if (!arrow) return;
+        arrow.visible = true;
+        arrow.position.set(origin.x, origin.y, origin.z);
+        arrow.setDirection(new THREE.Vector3(direction.x, direction.y, direction.z).normalize());
+        arrow.setLength(length, 0.09, 0.045);
+        arrow.setColor(new THREE.Color(color));
+      }
+
+      updateArrows3d(progress) {
+        this.arrows.forEach((arrow) => { arrow.visible = false; });
+        const show = this.mode !== 'transform' || progress.analysis > 0.05 || progress.phase === 'top transforming';
+        if (!show) return;
+        const y = BASE_HEIGHT + 0.2;
+        const color = this.collisionUnsafe ? 0xa35d45 : 0x74a66f;
+        if (this.mechanism === 'geometric' || this.mechanism === 'origami') {
+          this.setArrow(0, { x: -0.08, y, z: -0.08 }, { x: -1, y: 0, z: -1 }, 0.34, color);
+          this.setArrow(1, { x: 0.08, y, z: 0.08 }, { x: 1, y: 0, z: 1 }, 0.34, color);
+          this.setArrow(2, { x: 0.08, y, z: -0.08 }, { x: 1, y: 0, z: -1 }, 0.28, color);
+          this.setArrow(3, { x: -0.08, y, z: 0.08 }, { x: -1, y: 0, z: 1 }, 0.28, color);
+        } else if (this.mechanism === 'butterfly' || this.mechanism === 'console') {
+          this.setArrow(0, { x: -0.24, y, z: 0 }, { x: 0, y: 0, z: -1 }, 0.34, color);
+          this.setArrow(1, { x: 0.24, y, z: 0 }, { x: 0, y: 0, z: 1 }, 0.34, color);
+        } else if (this.mechanism === 'lift') {
+          this.setArrow(0, { x: 0.45, y: BASE_HEIGHT * 0.65, z: 0.12 }, { x: 0, y: 1, z: 0 }, 0.42, color);
+          this.setArrow(1, { x: -0.24, y, z: 0 }, { x: -1, y: 0, z: 0 }, 0.24, color);
+          this.setArrow(2, { x: 0.24, y, z: 0 }, { x: 1, y: 0, z: 0 }, 0.24, color);
+        } else {
+          this.setArrow(0, { x: -0.06, y, z: 0 }, { x: -1, y: 0, z: 0 }, 0.36, color);
+          this.setArrow(1, { x: 0.06, y, z: 0 }, { x: 1, y: 0, z: 0 }, 0.36, color);
+        }
+      }
+
+      updateOverlay(progress) {
+        if (!this.overlay) return;
+        const safetyClass = this.collisionUnsafe ? 'risk' : 'safe';
+        const safetyText = this.collisionUnsafe
+          ? `collision risk: ${this.collisionFailures.join(', ')}`
+          : 'collision boxes clear';
+        const modeText = this.mode === 'collision' ? 'collision volumes visible'
+          : this.mode === 'exploded' ? 'exploded analysis view'
+          : 'transform sequence';
+        const note = this.reference?.mechanismNotes || 'Mechanism reference';
+        const html = [
+          `<span class="analysis-chip">${escapeHtml(modeText)}</span>`,
+          `<span class="analysis-chip">${escapeHtml(progress.phase)}</span>`,
+          `<span class="analysis-chip">${escapeHtml(note)}</span>`,
+          `<span class="analysis-chip ${safetyClass}">${escapeHtml(safetyText)}</span>`,
+        ].join('');
+        if (this.overlay.innerHTML !== html) this.overlay.innerHTML = html;
       }
 
       draw3d(progress) {
@@ -4589,6 +5246,8 @@ for p in plan.placements:
         this.target3d.scale.set(this.dimensions.length, 1, this.dimensions.width);
         this.target3d.material.opacity = progress.phase === 'locked' ? 0.3 : 0.18;
         this.modules.forEach((module, index) => this.update3dModule(this.moduleMeshes[index], this.moduleState(module, progress), module, progress));
+        this.updateArrows3d(progress);
+        this.updateOverlay(progress);
         this.scene.rotation.y = 0.1 * Math.sin(performance.now() * 0.00024);
         this.renderer.render(this.scene, this.camera);
       }
@@ -4599,7 +5258,8 @@ for p in plan.placements:
         this.draw3d(progress);
         if (this.status) {
           const paused = this.paused ? 'paused' : 'running';
-          this.status.textContent = `${mechanismNames[this.mechanism]} | ${this.dimensions.length.toFixed(1)}m x ${this.dimensions.width.toFixed(1)}m | ${progress.phase} | single transformable cabinet | ${paused}`;
+          const collision = this.collisionUnsafe ? `collision risk ${this.collisionFailures.join(', ')}` : 'collision clear';
+          this.status.textContent = `${mechanismNames[this.mechanism]} | ${this.dimensions.length.toFixed(1)}m x ${this.dimensions.width.toFixed(1)}m | ${progress.phase} | ${this.mode} | ${collision} | ${paused}`;
         }
       }
     }
