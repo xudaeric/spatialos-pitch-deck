@@ -1072,6 +1072,32 @@
       pointer-events: none;
     }
 
+    .camera-label-grid {
+      position: absolute;
+      inset: 44px 12px 54px;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      pointer-events: none;
+    }
+
+    .camera-label-grid span {
+      align-self: start;
+      justify-self: start;
+      margin: 6px;
+      min-height: 22px;
+      padding: 4px 7px;
+      border: 1px solid rgba(220, 235, 215, .16);
+      border-radius: 5px;
+      background: rgba(17, 21, 15, .58);
+      color: #dcebd7;
+      font-size: 10px;
+      font-weight: 820;
+      text-transform: uppercase;
+    }
+
     .analysis-chip {
       min-height: 26px;
       padding: 5px 8px;
@@ -3744,6 +3770,79 @@ for p in plan.placements:
       return x > epsilon && y > epsilon && z > epsilon;
     }
 
+    const MechanismAssemblyPhases = {
+      geometric: [
+        { id: 'shell-unlock', label: 'Shell unlock', start: 0, end: .16 },
+        { id: 'rail-slide', label: 'Quadrant slide', start: .16, end: .62 },
+        { id: 'filler-rise', label: 'Filler panels rise', start: .52, end: .82 },
+        { id: 'lock', label: 'Perimeter lock', start: .82, end: 1 },
+      ],
+      butterfly: [
+        { id: 'shell-unlock', label: 'Frame unlock', start: 0, end: .16 },
+        { id: 'rail-slide', label: 'Telescopic frame', start: .16, end: .48 },
+        { id: 'leaf-deploy', label: 'Butterfly leaves deploy', start: .48, end: .82 },
+        { id: 'lock', label: 'Leaf lock', start: .82, end: 1 },
+      ],
+      book: [
+        { id: 'shell-unlock', label: 'Side latch release', start: 0, end: .18 },
+        { id: 'hinge-rotate', label: 'Flip leaf rotate', start: .18, end: .74 },
+        { id: 'support-lock', label: 'Limit support lock', start: .74, end: 1 },
+      ],
+      console: [
+        { id: 'shell-unlock', label: 'Front latch release', start: 0, end: .16 },
+        { id: 'panel-fold', label: 'Fold-out panel', start: .16, end: .58 },
+        { id: 'leg-drop', label: 'Support legs drop', start: .58, end: .86 },
+        { id: 'lock', label: 'Lock points engage', start: .86, end: 1 },
+      ],
+      'center-leaf': [
+        { id: 'shell-unlock', label: 'Rail unlock', start: 0, end: .16 },
+        { id: 'rail-slide', label: 'Halves separate', start: .16, end: .58 },
+        { id: 'leaf-rise', label: 'Center leaf rises', start: .58, end: .86 },
+        { id: 'lock', label: 'Surface locks', start: .86, end: 1 },
+      ],
+      electric: [
+        { id: 'motor-start', label: 'Motor start', start: 0, end: .15 },
+        { id: 'rail-slide', label: 'Synchronized rails', start: .15, end: .56 },
+        { id: 'leaf-rise', label: 'Center leaf lift', start: .56, end: .84 },
+        { id: 'lock', label: 'Sensor lock', start: .84, end: 1 },
+      ],
+      lift: [
+        { id: 'shell-unlock', label: 'Top latch release', start: 0, end: .14 },
+        { id: 'lift-rise', label: 'Lift column rises', start: .14, end: .62 },
+        { id: 'leaf-deploy', label: 'Top leaves unfold', start: .62, end: .9 },
+        { id: 'lock', label: 'Height lock', start: .9, end: 1 },
+      ],
+      origami: [
+        { id: 'hub-rotate', label: 'Center hub rotates', start: 0, end: .34 },
+        { id: 'wing-deploy', label: 'Four wings deploy', start: .34, end: .82 },
+        { id: 'lock', label: 'Wing locks engage', start: .82, end: 1 },
+      ],
+    };
+
+    function phaseProgress(mechanism, phaseId, progress) {
+      const phase = (MechanismAssemblyPhases[mechanism] || []).find((item) => item.id === phaseId);
+      if (!phase) return progress;
+      return easeInOut(clamp((progress - phase.start) / Math.max(0.001, phase.end - phase.start), 0, 1));
+    }
+
+    function assemblyPhaseAt(mechanism, progress) {
+      const phases = MechanismAssemblyPhases[mechanism] || [];
+      return phases.find((phase) => progress >= phase.start && progress < phase.end) || phases[phases.length - 1] || { id: 'transform', label: 'Transform' };
+    }
+
+    function motionMeta(name, phaseId, options = {}) {
+      return {
+        name,
+        proxy: `${name}_COL`,
+        phase: phaseId,
+        parent: options.parent || 'cabinet_body',
+        pivot: options.pivot || 'local center',
+        axis: options.axis || 'linear',
+        range: options.range || '0 -> 1',
+        trajectory: options.trajectory || 'linear rail',
+      };
+    }
+
     class MovementCoordinationDemo {
       constructor(section) {
         this.section = section;
@@ -4356,6 +4455,9 @@ for p in plan.placements:
         this.mode = 'transform';
         this.collisionUnsafe = false;
         this.collisionFailures = [];
+        this.collisionReports = [];
+        this.autoRepairOffset = 0;
+        this.sweepReport = null;
         this.paused = false;
         this.elapsed = 0;
         this.lastTime = performance.now();
@@ -4509,6 +4611,7 @@ for p in plan.placements:
           length: snapDimension(dimensions.length),
           width: snapDimension(dimensions.width),
         };
+        this.autoRepairOffset = 0;
         this.lengthInput.value = this.dimensions.length.toFixed(1);
         this.widthInput.value = this.dimensions.width.toFixed(1);
         const plan = this.planFor(this.dimensions);
@@ -4520,6 +4623,7 @@ for p in plan.placements:
         });
         this.elapsed = initial ? commandMs * 0.55 : 0;
         this.lastTime = performance.now();
+        this.sweepReport = this.validateCollisionPlan(72);
       }
 
       currentProgress(time) {
@@ -4542,6 +4646,8 @@ for p in plan.placements:
             : this.elapsed < commandMs + analysisMs ? 'exploded analysis'
             : this.elapsed < commandMs + analysisMs + transformMs ? 'top transforming'
             : 'locked',
+          assemblyPhase: assemblyPhaseAt(this.mechanism, transform),
+          frame: Math.round(transform * 72),
         };
       }
 
@@ -4562,8 +4668,12 @@ for p in plan.placements:
       setup3d() {
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas3d, antialias: true, alpha: true });
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        this.renderer.autoClear = false;
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+        this.frontCamera = new THREE.OrthographicCamera(-1.4, 1.4, 1.1, -0.35, 0.1, 100);
+        this.sideCamera = new THREE.OrthographicCamera(-1.4, 1.4, 1.1, -0.35, 0.1, 100);
+        this.topCamera = new THREE.OrthographicCamera(-1.4, 1.4, 1.4, -1.4, 0.1, 100);
         this.scene.add(new THREE.HemisphereLight(0xf7f4ec, 0x242822, 2.4));
         const key = new THREE.DirectionalLight(0xffffff, 2.1);
         key.position.set(4, 6, 4);
@@ -4602,7 +4712,16 @@ for p in plan.placements:
         this.overlay = document.createElement('div');
         this.overlay.className = 'mechanism-overlay';
         this.canvas3d.parentElement.append(this.overlay);
+        this.cameraLabels = document.createElement('div');
+        this.cameraLabels.className = 'camera-label-grid';
+        this.cameraLabels.innerHTML = '<span>Perspective</span><span>Front</span><span>Side</span><span>Top</span>';
+        this.canvas3d.parentElement.append(this.cameraLabels);
         this.moduleMeshes = this.modules.map((module) => this.makeModuleMesh(module));
+        this.partManifest = this.moduleMeshes[0]?.mechanicalParts.map((part) => ({
+          object: part.name,
+          collision: part.collisionProxy.name,
+          ...part.meta,
+        })) || [];
       }
 
       makeModuleMesh(module) {
@@ -4686,8 +4805,10 @@ for p in plan.placements:
           group.add(part);
           return part;
         });
-        const collisionBoxes = Array.from({ length: 9 }, () => {
-          const box = new THREE.Mesh(
+        const mechanicalParts = [];
+        const registerPart = (name, object, meta = {}) => {
+          object.name = name;
+          const collisionProxy = new THREE.Mesh(
             new THREE.BoxGeometry(1, 1, 1),
             new THREE.MeshBasicMaterial({
               color: 0x74a66f,
@@ -4697,18 +4818,53 @@ for p in plan.placements:
               depthTest: false,
             })
           );
-          box.visible = false;
-          box.userData.collisionId = '';
-          group.add(box);
-          return box;
-        });
+          collisionProxy.name = `${name}_COL`;
+          collisionProxy.visible = false;
+          collisionProxy.userData.sourceName = name;
+          collisionProxy.userData.meta = {
+            ...motionMeta(name, meta.phase || 'static', meta),
+            collisionShape: meta.collisionShape || 'box',
+          };
+          group.add(collisionProxy);
+          const part = { name, object, collisionProxy, meta: collisionProxy.userData.meta };
+          mechanicalParts.push(part);
+          return part;
+        };
+        registerPart('cabinet_body', base, { phase: 'static', parent: 'root', pivot: 'floor center', axis: 'none', range: 'fixed', trajectory: 'fixed' });
+        registerPart('plinth_base', plinth, { phase: 'static', parent: 'cabinet_body', pivot: 'floor center', axis: 'none', range: 'fixed', trajectory: 'fixed' });
+        registerPart('front_door_line', doorLine, { phase: 'static', parent: 'cabinet_body', pivot: 'front face', axis: 'none', range: 'fixed', trajectory: 'fixed' });
+        registerPart('drawer_line', drawerLine, { phase: 'static', parent: 'cabinet_body', pivot: 'front face', axis: 'none', range: 'fixed', trajectory: 'fixed' });
+        registerPart('front_handle', handle, { phase: 'static', parent: 'cabinet_body', pivot: 'front face', axis: 'none', range: 'fixed', trajectory: 'fixed', collisionShape: 'box' });
+        wheels.forEach((wheel, i) => registerPart(`caster_${i + 1}`, wheel, { phase: 'static', parent: 'cabinet_body', pivot: 'wheel axle', axis: 'X', range: 'free roll', trajectory: 'fixed axle', collisionShape: 'capsule proxy' }));
+        registerPart('top_main', top, { phase: 'lock', parent: 'cabinet_body', pivot: 'top center', axis: 'Y', range: '0-45deg when required', trajectory: 'top plane' });
+        panels.forEach((panel, i) => registerPart(`panel_${i + 1}`, panel, { phase: 'leaf-deploy', parent: 'top_main', pivot: 'edge hinge / rail puck', axis: 'mechanism defined', range: '0-115deg or linear 0-0.6m', trajectory: 'phase rail' }));
+        registerPart('rail_main', rail, { phase: 'rail-slide', parent: 'cabinet_body', pivot: 'rail centerline', axis: 'X/Z', range: '0-0.6m', trajectory: 'linear rail' });
+        registerPart('motor_carriage', motor, { phase: 'motor-start', parent: 'rail_main', pivot: 'motor mount', axis: 'X', range: '0-0.72m', trajectory: 'linear rail' });
+        details.forEach((part, i) => registerPart(`mechanism_detail_${i + 1}`, part, { phase: 'mechanism-detail', parent: 'top_main', pivot: 'local center', axis: 'mechanism defined', range: 'local', trajectory: 'decorative mechanism proxy' }));
         const outline = new THREE.LineSegments(
           new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)),
           new THREE.LineBasicMaterial({ color: 0x151815, transparent: true, opacity: 0.22 })
         );
         base.add(outline);
         this.scene.add(group);
-        return { group, base, plinth, doorLine, drawerLine, handle, wheels, top, panels, rail, motor, details, collisionBoxes };
+        const partByName = new Map(mechanicalParts.map((part) => [part.name, part]));
+        return {
+          group,
+          base,
+          plinth,
+          doorLine,
+          drawerLine,
+          handle,
+          wheels,
+          top,
+          panels,
+          rail,
+          motor,
+          details,
+          mechanicalParts,
+          partByName,
+          collisionBoxes: mechanicalParts.map((part) => part.collisionProxy),
+        };
       }
 
       layout2d(view) {
@@ -4873,93 +5029,193 @@ for p in plan.placements:
 
       collisionBodiesFor(top, transformProgress) {
         const p = clamp(transformProgress, 0, 1);
+        const frame = Math.round(p * 72);
+        const activePhase = assemblyPhaseAt(this.mechanism, p);
+        const phase = (phaseId) => phaseProgress(this.mechanism, phaseId, p);
+        const repair = this.autoRepairOffset || 0;
         const deckY = BASE_HEIGHT + 0.105 + top.lift;
-        const body = (id, x, y, z, sx, sy, sz, color = 0x74a66f) => ({
-          id,
-          x,
-          y,
-          z,
-          sx: Math.max(0.012, sx),
-          sy: Math.max(0.012, sy),
-          sz: Math.max(0.012, sz),
-          color,
+        const body = (id, x, y, z, sx, sy, sz, color = 0x74a66f, meta = {}) => {
+          const phaseId = meta.phase || activePhase.id;
+          const collisionMeta = {
+            ...motionMeta(id, phaseId, meta),
+            activePhase: activePhase.label,
+            frame,
+            collisionShape: meta.collisionShape || 'box',
+            allowedContacts: meta.allowedContacts || [],
+            repairSuggestion: meta.suggestion || 'Delay this part to the next phase, lift it 2cm, or offset the rail path before retrying the sweep.',
+          };
+          return {
+            id,
+            name: `${id}_COL`,
+            x,
+            y,
+            z,
+            sx: Math.max(0.012, sx),
+            sy: Math.max(0.012, sy),
+            sz: Math.max(0.012, sz),
+            rx: meta.rx || 0,
+            ry: meta.ry || 0,
+            rz: meta.rz || 0,
+            color,
+            phase: phaseId,
+            frame,
+            meta: collisionMeta,
+          };
+        };
+        const staticBodies = [
+          body('cabinet_body', 0, BASE_HEIGHT / 2, 0, BASE, BASE_HEIGHT, BASE, 0xa35d45, { phase: 'static', parent: 'root', pivot: 'floor center', axis: 'none', range: 'fixed', trajectory: 'fixed cabinet envelope' }),
+          body('plinth_base', 0, 0.035, 0, BASE * 0.92, 0.07, BASE * 0.92, 0x343a33, { phase: 'static', parent: 'cabinet_body', pivot: 'floor center', axis: 'none', range: 'fixed', trajectory: 'fixed plinth envelope' }),
+          body('front_door_line', 0, BASE_HEIGHT * 0.55, -BASE / 2 - 0.014, BASE * 0.82, 0.012, 0.012, 0x343a33, { phase: 'static', parent: 'cabinet_body', pivot: 'front face', axis: 'none', range: 'fixed', trajectory: 'fixed decorative seam' }),
+          body('drawer_line', 0, BASE_HEIGHT * 0.34, -BASE / 2 - 0.014, BASE * 0.82, 0.012, 0.012, 0x343a33, { phase: 'static', parent: 'cabinet_body', pivot: 'front face', axis: 'none', range: 'fixed', trajectory: 'fixed decorative seam' }),
+          body('front_handle', 0.18, BASE_HEIGHT * 0.45, -BASE / 2 - 0.026, 0.16, 0.018, 0.018, 0x7e8a8b, { phase: 'static', parent: 'cabinet_body', pivot: 'front face', axis: 'none', range: 'fixed', trajectory: 'fixed handle envelope' }),
+        ];
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z], index) => {
+          staticBodies.push(body(`caster_${index + 1}`, x * BASE * 0.34, 0.035, z * BASE * 0.34, 0.075, 0.075, 0.075, 0x222622, { phase: 'static', parent: 'plinth_base', pivot: 'wheel axle', axis: 'X', range: 'free roll', trajectory: 'fixed axle', collisionShape: 'capsule proxy' }));
         });
-        const bodies = [body('cabinet-core', 0, BASE_HEIGHT / 2, 0, BASE, BASE_HEIGHT, BASE, 0xa35d45)];
-        const halfLength = Math.max(0.08, top.length / 2 - 0.014);
-        const halfWidth = Math.max(0.08, top.width / 2 - 0.014);
+        const bodies = staticBodies;
+        const topBodyLength = this.mechanism === 'geometric' ? BASE * 0.72 : Math.max(BASE * 0.54, top.length * 0.58);
+        const topBodyWidth = this.mechanism === 'geometric' ? BASE * 0.72 : Math.max(BASE * 0.54, top.width * 0.58);
+        bodies.push(body('top_main', 0, deckY, 0, topBodyLength, 0.04, topBodyWidth, 0xd9e6dc, { phase: activePhase.id, parent: 'cabinet_body', pivot: 'top center', axis: this.mechanism === 'origami' ? 'Y' : 'none', range: this.mechanism === 'origami' ? '0-45deg' : 'fixed during active phase', trajectory: 'main top datum', ry: this.mechanism === 'origami' ? phase('hub-rotate') * Math.PI / 4 : 0 }));
 
         if (this.mechanism === 'geometric') {
+          const slideP = phase('rail-slide');
+          const fillerP = phase('filler-rise');
+          const quadrantLength = Math.max(0.08, top.length / 2 - 0.018);
+          const quadrantWidth = Math.max(0.08, top.width / 2 - 0.018);
           bodies.push(
-            body('plate-nw', -top.length / 4, deckY, -top.width / 4, halfLength, 0.042, halfWidth),
-            body('plate-ne', top.length / 4, deckY, -top.width / 4, halfLength, 0.042, halfWidth),
-            body('plate-sw', -top.length / 4, deckY, top.width / 4, halfLength, 0.042, halfWidth),
-            body('plate-se', top.length / 4, deckY, top.width / 4, halfLength, 0.042, halfWidth),
+            body('rail_main', 0, BASE_HEIGHT + 0.052, 0, top.length * 0.92, 0.018, 0.038, 0x7e8a8b, { phase: 'rail-slide', parent: 'cabinet_body', pivot: 'X rail centerline', axis: 'X', range: '0-0.6m', trajectory: 'linear X rail below top panels' }),
+            body('mechanism_detail_1', 0, BASE_HEIGHT + 0.052, 0, 0.038, 0.018, top.width * 0.92, 0x7e8a8b, { phase: 'rail-slide', parent: 'cabinet_body', pivot: 'Z rail centerline', axis: 'Z', range: '0-0.6m', trajectory: 'linear Z rail below top panels' }),
+            body('panel_1', -top.length * 0.25, deckY, -top.width * 0.25, quadrantLength, 0.042, quadrantWidth, 0xead9bd, { phase: 'rail-slide', parent: 'top_main', pivot: 'NW slide puck', axis: 'X/Z', range: '0-0.3m diagonal', trajectory: `diagonal rail out ${slideP.toFixed(2)}` }),
+            body('panel_2', top.length * 0.25, deckY, -top.width * 0.25, quadrantLength, 0.042, quadrantWidth, 0xd9e6dc, { phase: 'rail-slide', parent: 'top_main', pivot: 'NE slide puck', axis: 'X/Z', range: '0-0.3m diagonal', trajectory: `diagonal rail out ${slideP.toFixed(2)}` }),
+            body('panel_3', -top.length * 0.25, deckY, top.width * 0.25, quadrantLength, 0.042, quadrantWidth, 0xd9e6dc, { phase: 'rail-slide', parent: 'top_main', pivot: 'SW slide puck', axis: 'X/Z', range: '0-0.3m diagonal', trajectory: `diagonal rail out ${slideP.toFixed(2)}` }),
+            body('panel_4', top.length * 0.25, deckY, top.width * 0.25, quadrantLength, 0.042, quadrantWidth, 0xead9bd, { phase: 'rail-slide', parent: 'top_main', pivot: 'SE slide puck', axis: 'X/Z', range: '0-0.3m diagonal', trajectory: `diagonal rail out ${slideP.toFixed(2)}` }),
+            body('mechanism_detail_2', 0, deckY - 0.06 + 0.045 * fillerP, 0, 0.018, 0.024, 0.018, 0x1e6b4a, { phase: 'filler-rise', parent: 'rail_main', pivot: 'center lift cam', axis: 'Y', range: '0-5cm', trajectory: 'small lift cam below separated quadrants' }),
           );
         } else if (this.mechanism === 'butterfly') {
-          const leafDepth = Math.max(0.04, top.width * 0.16 * p);
+          const railP = phase('rail-slide');
+          const leafP = phase('leaf-deploy');
+          const leafDepth = Math.max(0.04, top.width * 0.16 * leafP);
           bodies.push(
-            body('left-top-half', 0, deckY, -top.width * 0.27, top.length * 0.92, 0.04, top.width * 0.34),
-            body('right-top-half', 0, deckY, top.width * 0.27, top.length * 0.92, 0.04, top.width * 0.34),
+            body('rail_main', 0, BASE_HEIGHT + 0.075, 0, top.length * (0.46 + 0.46 * railP), 0.028, 0.042, 0x7e8a8b, { phase: 'rail-slide', parent: 'cabinet_body', pivot: 'telescopic frame center', axis: 'X', range: '0-0.6m', trajectory: 'opposed telescopic rails' }),
+            body('panel_1', 0, deckY, -top.width * 0.25, top.length * 0.86, 0.04, top.width * 0.26, 0xead9bd, { phase: 'rail-slide', parent: 'rail_main', pivot: 'left half frame', axis: 'X', range: '0-0.6m', trajectory: 'left frame half slides out' }),
+            body('panel_2', 0, deckY, top.width * 0.25, top.length * 0.86, 0.04, top.width * 0.26, 0xd9e6dc, { phase: 'rail-slide', parent: 'rail_main', pivot: 'right half frame', axis: 'X', range: '0-0.6m', trajectory: 'right frame half slides out' }),
+            body('panel_3', 0, deckY + 0.07 + repair, -top.width * 0.08, top.length * 0.76, 0.038, leafDepth, 0xc58b3a, { phase: 'leaf-deploy', parent: 'panel_1', pivot: 'butterfly center hinge A', axis: 'X', range: '0-115deg', trajectory: 'lift above deck then rotate open', rx: (1 - leafP) * 1.1 }),
+            body('panel_4', 0, deckY + 0.07 + repair, top.width * 0.08, top.length * 0.76, 0.038, leafDepth, 0xc58b3a, { phase: 'leaf-deploy', parent: 'panel_2', pivot: 'butterfly center hinge B', axis: 'X', range: '0-115deg', trajectory: 'lift above deck then rotate open', rx: -(1 - leafP) * 1.1 }),
           );
-          if (p > 0.12) {
-            bodies.push(
-              body('butterfly-leaf-a', 0, deckY + 0.07, -top.width * 0.08, top.length * 0.76, 0.038, leafDepth, 0xc58b3a),
-              body('butterfly-leaf-b', 0, deckY + 0.07, top.width * 0.08, top.length * 0.76, 0.038, leafDepth, 0xc58b3a),
-            );
-          }
         } else if (this.mechanism === 'book') {
-          const movingLength = Math.max(0.04, top.length * 0.46 * p);
+          const hingeP = phase('hinge-rotate');
+          const supportP = phase('support-lock');
+          const movingLength = Math.max(0.04, top.length * 0.46 * hingeP);
           bodies.push(
-            body('hinge-side-top', -top.length * 0.22, deckY, 0, top.length * 0.44, 0.04, top.width * 0.92),
-            body('flip-leaf-clearance', top.length * 0.12 + movingLength / 2, deckY + 0.08, 0, movingLength, 0.038, top.width * 0.86, 0xc58b3a),
+            body('mechanism_detail_1', -top.length * 0.48, deckY, 0, 0.03, 0.03, top.width, 0x343a33, { phase: 'hinge-rotate', parent: 'cabinet_body', pivot: 'side hinge barrel', axis: 'Z', range: '0-180deg', trajectory: 'fixed hinge axis' }),
+            body('panel_1', top.length * 0.12 + movingLength / 2, deckY + 0.08, 0, movingLength, 0.038, top.width * 0.86, 0xc58b3a, { phase: 'hinge-rotate', parent: 'top_main', pivot: 'left side hinge', axis: 'Z', range: '0-180deg', trajectory: 'raised arc then lands flush', rz: (1 - hingeP) * -1.25 }),
+            body('mechanism_detail_2', -top.length * 0.33, BASE_HEIGHT + 0.18, top.width * 0.38, 0.035, 0.035, 0.38 * supportP, 0x7e8a8b, { phase: 'support-lock', parent: 'cabinet_body', pivot: 'rear support hinge', axis: 'X', range: '0-45deg', trajectory: 'support swings after leaf clears', rx: -0.78 * supportP }),
+            body('mechanism_detail_3', -top.length * 0.33, BASE_HEIGHT + 0.18, -top.width * 0.38, 0.035, 0.035, 0.38 * supportP, 0x7e8a8b, { phase: 'support-lock', parent: 'cabinet_body', pivot: 'front support hinge', axis: 'X', range: '0-45deg', trajectory: 'support swings after leaf clears', rx: 0.78 * supportP }),
           );
         } else if (this.mechanism === 'console') {
-          const foldDepth = Math.max(0.04, top.width * 0.25 * p);
+          const panelP = phase('panel-fold');
+          const legP = phase('leg-drop');
+          const foldDepth = Math.max(0.04, top.width * 0.25 * panelP);
           bodies.push(
-            body('stored-top', 0, deckY, -top.width * 0.16, top.length * 0.88, 0.04, top.width * 0.36),
-            body('fold-out-leaf', 0, deckY + 0.07, top.width * 0.18 + foldDepth / 2, top.length * 0.86, 0.038, foldDepth, 0xc58b3a),
-            body('left-support-leg', -top.length * 0.36, BASE_HEIGHT * 0.5 * p, top.width * 0.42 * p, 0.05, Math.max(0.04, BASE_HEIGHT * p), 0.05, 0x7e8a8b),
-            body('right-support-leg', top.length * 0.36, BASE_HEIGHT * 0.5 * p, top.width * 0.42 * p, 0.05, Math.max(0.04, BASE_HEIGHT * p), 0.05, 0x7e8a8b),
+            body('panel_1', 0, deckY + 0.07, top.width * 0.18 + foldDepth / 2, top.length * 0.86, 0.038, foldDepth, 0xc58b3a, { phase: 'panel-fold', parent: 'top_main', pivot: 'front fold hinge', axis: 'X', range: '0-110deg', trajectory: 'rotate out above cabinet before lowering', rx: (1 - panelP) * -1.2 }),
+            body('mechanism_detail_1', -top.length * 0.36, BASE_HEIGHT * 0.5 * legP, top.width * 0.42 * panelP, 0.05, Math.max(0.04, BASE_HEIGHT * legP), 0.05, 0x7e8a8b, { phase: 'leg-drop', parent: 'panel_1', pivot: 'left leg hinge', axis: 'X', range: '0-90deg', trajectory: 'vertical drop after panel clears' }),
+            body('mechanism_detail_2', top.length * 0.36, BASE_HEIGHT * 0.5 * legP, top.width * 0.42 * panelP, 0.05, Math.max(0.04, BASE_HEIGHT * legP), 0.05, 0x7e8a8b, { phase: 'leg-drop', parent: 'panel_1', pivot: 'right leg hinge', axis: 'X', range: '0-90deg', trajectory: 'vertical drop after panel clears' }),
+            body('mechanism_detail_3', -top.length * 0.39, BASE_HEIGHT + 0.13, top.width * 0.18, 0.07, 0.035, 0.05, 0x1e6b4a, { phase: 'lock', parent: 'panel_1', pivot: 'left lock point', axis: 'none', range: 'engaged/disengaged', trajectory: 'lock after legs touch floor' }),
+            body('mechanism_detail_4', top.length * 0.39, BASE_HEIGHT + 0.13, top.width * 0.18, 0.07, 0.035, 0.05, 0x1e6b4a, { phase: 'lock', parent: 'panel_1', pivot: 'right lock point', axis: 'none', range: 'engaged/disengaged', trajectory: 'lock after legs touch floor' }),
           );
         } else if (this.mechanism === 'center-leaf' || this.mechanism === 'electric') {
-          const centerLength = Math.max(0.05, (top.length - BASE) * 0.7 * p);
+          const railP = phase('rail-slide');
+          const leafP = phase('leaf-rise');
+          const centerLength = Math.max(0.05, (top.length - BASE) * 0.7 * leafP);
           const sideLength = Math.max(0.05, (top.length - centerLength) / 2 - 0.012);
           bodies.push(
-            body('left-slide-top', -centerLength / 2 - sideLength / 2, deckY, 0, sideLength, 0.04, top.width * 0.92),
-            body('right-slide-top', centerLength / 2 + sideLength / 2, deckY, 0, sideLength, 0.04, top.width * 0.92),
-            body(this.mechanism === 'electric' ? 'motorized-center-leaf' : 'center-leaf', 0, deckY + 0.08, 0, centerLength, 0.038, top.width * 0.88, 0x1e6b4a),
+            body('rail_main', 0, BASE_HEIGHT + 0.075, 0, top.length * 0.9, 0.032, 0.045, 0x7e8a8b, { phase: 'rail-slide', parent: 'cabinet_body', pivot: 'synchronized rail centerline', axis: 'X', range: '0-0.6m', trajectory: 'linear rails with reservation gap' }),
+            body('panel_1', -centerLength / 2 - sideLength / 2 - top.length * 0.05 * railP, deckY, 0, sideLength, 0.04, top.width * 0.88, 0xead9bd, { phase: 'rail-slide', parent: 'rail_main', pivot: 'left rail truck', axis: 'X', range: '0-0.3m', trajectory: 'left top half slides outward' }),
+            body('panel_2', centerLength / 2 + sideLength / 2 + top.length * 0.05 * railP, deckY, 0, sideLength, 0.04, top.width * 0.88, 0xd9e6dc, { phase: 'rail-slide', parent: 'rail_main', pivot: 'right rail truck', axis: 'X', range: '0-0.3m', trajectory: 'right top half slides outward' }),
+            body('panel_3', 0, deckY + 0.08 * leafP + repair, 0, centerLength, 0.038, top.width * 0.84, 0x1e6b4a, { phase: 'leaf-rise', parent: 'cabinet_body', pivot: 'center lift tray', axis: 'Y', range: '0-8cm', trajectory: 'vertical rise after side halves clear' }),
           );
           if (this.mechanism === 'electric') {
-            bodies.push(body('motor-carriage', -top.length * 0.36 + top.length * 0.72 * p, BASE_HEIGHT + 0.17, -top.width * 0.62, 0.12, 0.08, 0.07, 0x74a66f));
+            const motorP = Math.max(phase('motor-start'), railP);
+            bodies.push(body('motor_carriage', -top.length * 0.36 + top.length * 0.72 * motorP, BASE_HEIGHT + 0.17, -top.width * 0.62, 0.12, 0.08, 0.07, 0x74a66f, { phase: 'motor-start', parent: 'rail_main', pivot: 'motor mount', axis: 'X', range: '0-0.72m', trajectory: 'linear carriage before leaf lift' }));
           }
         } else if (this.mechanism === 'lift') {
+          const liftP = phase('lift-rise');
+          const leafP = phase('leaf-deploy');
           bodies.push(
-            body('lift-column', 0, BASE_HEIGHT * 0.5 + top.lift * 0.5, 0, 0.14, Math.max(0.12, top.lift + 0.14), 0.14, 0x1e6b4a),
-            body('raised-top', 0, deckY + 0.08, 0, top.length * 0.92, 0.04, top.width * 0.92),
+            body('mechanism_detail_1', 0, BASE_HEIGHT * 0.5 + top.lift * 0.5 * liftP, 0, 0.14, Math.max(0.12, top.lift * liftP + 0.14), 0.14, 0x1e6b4a, { phase: 'lift-rise', parent: 'cabinet_body', pivot: 'central lift column', axis: 'Y', range: '0-34cm', trajectory: 'vertical lift before leaf deploy' }),
+            body('mechanism_detail_2', -0.16, BASE_HEIGHT * 0.54 + top.lift * 0.42 * liftP, 0, 0.035, 0.035, 0.58, 0x7e8a8b, { phase: 'lift-rise', parent: 'cabinet_body', pivot: 'scissor left pin', axis: 'X', range: '0-45deg', trajectory: 'scissor rises with column', rx: 0.78 * liftP }),
+            body('mechanism_detail_3', 0.16, BASE_HEIGHT * 0.54 + top.lift * 0.42 * liftP, 0, 0.035, 0.035, 0.58, 0x7e8a8b, { phase: 'lift-rise', parent: 'cabinet_body', pivot: 'scissor right pin', axis: 'X', range: '0-45deg', trajectory: 'scissor rises with column', rx: -0.78 * liftP }),
+            body('panel_1', 0, deckY + 0.08 * leafP, 0, top.length * 0.72, 0.038, Math.max(0.04, (top.width - BASE) * 0.45 * leafP), 0xc58b3a, { phase: 'leaf-deploy', parent: 'top_main', pivot: 'raised top leaf hinge', axis: 'X', range: '0-90deg', trajectory: 'unfold after lift reaches clearance' }),
           );
         } else if (this.mechanism === 'origami') {
-          const wingW = Math.max(0.04, top.width * 0.23 * p);
-          const wingL = Math.max(0.04, top.length * 0.23 * p);
+          const hubP = phase('hub-rotate');
+          const wingP = phase('wing-deploy');
+          const wingNsP = wingP;
+          const wingEwP = easeInOut(clamp((wingP - 0.74) / 0.26, 0, 1));
+          const wingLowerP = easeInOut(clamp((wingP - 0.92) / 0.08, 0, 1));
+          const wingW = Math.max(0.04, top.width * 0.23 * wingNsP);
+          const wingL = Math.max(0.04, top.length * 0.23 * wingEwP);
           bodies.push(
-            body('rotating-center', 0, deckY, 0, BASE * 0.72, 0.04, BASE * 0.72, 0x1e6b4a),
-            body('north-wing', 0, deckY + 0.08, -BASE * 0.32 - wingW / 2, top.length * 0.32, 0.038, wingW, 0xc58b3a),
-            body('south-wing', 0, deckY + 0.08, BASE * 0.32 + wingW / 2, top.length * 0.32, 0.038, wingW, 0xc58b3a),
-            body('west-wing', -BASE * 0.32 - wingL / 2, deckY + 0.08, 0, wingL, 0.038, top.width * 0.32, 0xc58b3a),
-            body('east-wing', BASE * 0.32 + wingL / 2, deckY + 0.08, 0, wingL, 0.038, top.width * 0.32, 0xc58b3a),
+            body('mechanism_detail_1', 0, deckY + 0.012, 0, 0.16, 0.045, 0.16, 0x1e6b4a, { phase: 'hub-rotate', parent: 'cabinet_body', pivot: 'center rotating hub', axis: 'Y', range: '0-45deg', trajectory: 'rotate hub before wings open', ry: hubP * Math.PI / 4 }),
+            body('panel_1', 0, deckY + 0.08, -BASE * 0.38 - wingW / 2, top.length * 0.12, 0.038, wingW, 0xc58b3a, { phase: 'wing-deploy', parent: 'mechanism_detail_1', pivot: 'north wing hinge', axis: 'X/Y compound', range: '0-90deg', trajectory: 'rotate out after hub clears', ry: Math.PI / 4 }),
+            body('panel_2', 0, deckY + 0.08, BASE * 0.38 + wingW / 2, top.length * 0.12, 0.038, wingW, 0xc58b3a, { phase: 'wing-deploy', parent: 'mechanism_detail_1', pivot: 'south wing hinge', axis: 'X/Y compound', range: '0-90deg', trajectory: 'rotate out after hub clears', ry: -Math.PI / 4 }),
+            body('panel_3', -BASE * 0.38 - wingL / 2, deckY + 0.08 + 0.24 * (1 - wingLowerP), 0, wingL, 0.038, top.width * 0.12, 0xc58b3a, { phase: 'wing-deploy', parent: 'mechanism_detail_1', pivot: 'west wing hinge', axis: 'X/Y compound', range: '0-90deg', trajectory: 'slide high, then lower after N/S wings clear', ry: -Math.PI / 4 }),
+            body('panel_4', BASE * 0.38 + wingL / 2, deckY + 0.08 + 0.24 * (1 - wingLowerP), 0, wingL, 0.038, top.width * 0.12, 0xc58b3a, { phase: 'wing-deploy', parent: 'mechanism_detail_1', pivot: 'east wing hinge', axis: 'X/Y compound', range: '0-90deg', trajectory: 'slide high, then lower after N/S wings clear', ry: Math.PI / 4 }),
           );
-        } else {
-          bodies.push(body('top', 0, deckY, 0, top.length, 0.04, top.width));
         }
         return bodies;
       }
 
       collisionAllowed(a, b) {
-        const pair = [a, b].sort().join('/');
-        return new Set([
-          'cabinet-core/left-support-leg',
-          'cabinet-core/right-support-leg',
-          'cabinet-core/lift-column',
-        ]).has(pair);
+        const normalize = (left, right) => [left, right].sort().join('/');
+        const pair = normalize(a, b);
+        const allowed = new Set([
+          ['cabinet_body', 'plinth_base'],
+          ['cabinet_body', 'front_door_line'],
+          ['cabinet_body', 'drawer_line'],
+          ['cabinet_body', 'front_handle'],
+          ['cabinet_body', 'caster_1'],
+          ['cabinet_body', 'caster_2'],
+          ['cabinet_body', 'caster_3'],
+          ['cabinet_body', 'caster_4'],
+          ['plinth_base', 'caster_1'],
+          ['plinth_base', 'caster_2'],
+          ['plinth_base', 'caster_3'],
+          ['plinth_base', 'caster_4'],
+          ['plinth_base', 'mechanism_detail_1'],
+          ['plinth_base', 'mechanism_detail_2'],
+          ['cabinet_body', 'mechanism_detail_1'],
+          ['cabinet_body', 'mechanism_detail_2'],
+          ['cabinet_body', 'mechanism_detail_3'],
+          ['cabinet_body', 'panel_1'],
+          ['cabinet_body', 'panel_2'],
+          ['top_main', 'panel_1'],
+          ['top_main', 'panel_2'],
+          ['top_main', 'panel_3'],
+          ['top_main', 'panel_4'],
+          ['top_main', 'mechanism_detail_1'],
+          ['top_main', 'mechanism_detail_2'],
+          ['top_main', 'mechanism_detail_3'],
+          ['top_main', 'mechanism_detail_4'],
+          ['rail_main', 'top_main'],
+          ['rail_main', 'mechanism_detail_1'],
+          ['rail_main', 'mechanism_detail_2'],
+          ['mechanism_detail_1', 'mechanism_detail_2'],
+          ['panel_1', 'rail_main'],
+          ['panel_2', 'rail_main'],
+          ['panel_3', 'rail_main'],
+          ['panel_4', 'rail_main'],
+          ['panel_1', 'mechanism_detail_3'],
+          ['panel_1', 'mechanism_detail_4'],
+        ].map(([left, right]) => normalize(left, right)));
+        return allowed.has(pair);
+      }
+
+      collisionRepairSuggestion(a, b) {
+        if ([a, b].includes('cabinet_body')) return 'Raise the moving part before rotating, or delay the phase until it has cleared the cabinet envelope.';
+        if ([a, b].some((id) => id.startsWith('panel_'))) return 'Add a 2cm temporary lift, delay the panel phase, or move the pivot outward before the sweep continues.';
+        if ([a, b].includes('motor_carriage')) return 'Move the motor carriage outside the center-leaf envelope or start it one phase earlier.';
+        return 'Increase phase delay, offset the trajectory, or shrink the simplified proxy until the mechanical clearance is realistic.';
       }
 
       drawCollisionBodies2d(ctx, state, progress, layout) {
@@ -4968,7 +5224,7 @@ for p in plan.placements:
         ctx.save();
         ctx.setLineDash([5, 4]);
         for (const collision of bodies) {
-          if (collision.id === 'cabinet-core') continue;
+          if (collision.id === 'cabinet_body') continue;
           this.drawRect2d(
             ctx,
             state.pose.x + collision.x,
@@ -4988,28 +5244,40 @@ for p in plan.placements:
         mesh.collisionBoxes.forEach((box) => {
           box.visible = false;
           box.userData.collisionId = '';
+          box.userData.body = null;
+          box.userData.meta = box.userData.meta || {};
         });
         mesh.activeCollisionBoxes = [];
-        bodies.forEach((collision, index) => {
-          const box = mesh.collisionBoxes[index];
+        bodies.forEach((collision) => {
+          const part = mesh.partByName.get(collision.id);
+          const box = part?.collisionProxy || mesh.collisionBoxes.find((candidate) => !candidate.userData.collisionId);
           if (!box) return;
           box.visible = forceVisible || this.mode === 'collision' || this.collisionUnsafe;
+          box.name = collision.name || `${collision.id}_COL`;
           box.userData.collisionId = collision.id;
+          box.userData.body = collision;
+          box.userData.meta = {
+            ...(part?.meta || {}),
+            ...(collision.meta || {}),
+          };
           box.position.set(collision.x, collision.y, collision.z);
           box.scale.set(collision.sx, collision.sy, collision.sz);
+          box.rotation.set(collision.rx || 0, collision.ry || 0, collision.rz || 0);
           box.material.color.set(collision.color);
-          box.material.opacity = collision.id === 'cabinet-core' ? 0.08 : 0.16;
+          box.material.opacity = collision.id === 'cabinet_body' ? 0.08 : 0.16;
           mesh.activeCollisionBoxes.push(box);
         });
       }
 
-      checkCollisionBoxes(mesh) {
+      checkCollisionBoxes(mesh, context = {}) {
         const sceneRotation = this.scene.rotation.y;
         this.scene.rotation.y = 0;
         this.scene.updateMatrixWorld(true);
         mesh.group.updateMatrixWorld(true);
         const boxes = (mesh.activeCollisionBoxes || []).map((box) => ({
           id: box.userData.collisionId,
+          proxy: box.name,
+          meta: box.userData.meta || {},
           mesh: box,
           box: new THREE.Box3().setFromObject(box),
         }));
@@ -5019,7 +5287,13 @@ for p in plan.placements:
           for (let b = a + 1; b < boxes.length; b += 1) {
             if (this.collisionAllowed(boxes[a].id, boxes[b].id)) continue;
             if (boxesOverlap3d(boxes[a].box, boxes[b].box)) {
-              failures.push(`${boxes[a].id}/${boxes[b].id}`);
+              failures.push({
+                phase: context.phase || boxes[a].meta.activePhase || boxes[b].meta.activePhase || 'unknown',
+                frame: context.frame ?? boxes[a].meta.frame ?? boxes[b].meta.frame ?? 0,
+                parts: [boxes[a].id, boxes[b].id],
+                proxies: [boxes[a].proxy, boxes[b].proxy],
+                suggestion: this.collisionRepairSuggestion(boxes[a].id, boxes[b].id),
+              });
               involved.add(boxes[a].id);
               involved.add(boxes[b].id);
             }
@@ -5027,40 +5301,93 @@ for p in plan.placements:
         }
         for (const item of boxes) {
           item.mesh.material.color.set(involved.has(item.id) ? 0xa35d45 : 0x74a66f);
-          item.mesh.material.opacity = involved.has(item.id) ? 0.34 : (item.id === 'cabinet-core' ? 0.08 : 0.16);
+          item.mesh.material.opacity = involved.has(item.id) ? 0.34 : (item.id === 'cabinet_body' ? 0.08 : 0.16);
         }
         this.scene.rotation.y = sceneRotation;
         this.scene.updateMatrixWorld(true);
-        return { safe: failures.length === 0, failures };
+        return {
+          safe: failures.length === 0,
+          failures,
+          proxiesChecked: boxes.length,
+        };
       }
 
       validateCollisionPlan(samples = 72) {
         const mesh = this.moduleMeshes[0];
         const module = this.modules[0];
-        const failures = [];
-        for (let i = 0; i <= samples; i += 1) {
-          const t = i / samples;
-          const state = {
-            pose: { x: 0, z: 0 },
-            top: {
-              length: lerp(BASE, this.dimensions.length, t),
-              width: lerp(BASE, this.dimensions.width, t),
-              lift: this.mechanism === 'lift' ? 0.34 * t : 0,
-            },
-          };
-          const progress = { transform: t, analysis: 0, showCollision: true, phase: 'top transforming' };
-          this.update3dModule(mesh, state, module, progress, true);
-          const check = this.checkCollisionBoxes(mesh);
-          if (!check.safe) failures.push(...check.failures.map((failure) => `${failure}@${t.toFixed(2)}`));
+        const runSweep = () => {
+          const failures = [];
+          let proxiesChecked = 0;
+          for (let i = 0; i <= samples; i += 1) {
+            const t = i / samples;
+            const state = {
+              pose: { x: 0, z: 0 },
+              top: {
+                length: lerp(BASE, this.dimensions.length, t),
+                width: lerp(BASE, this.dimensions.width, t),
+                lift: this.mechanism === 'lift' ? 0.34 * t : 0,
+              },
+            };
+            const activePhase = assemblyPhaseAt(this.mechanism, t);
+            const progress = {
+              transform: t,
+              analysis: 0,
+              showCollision: true,
+              phase: 'sweep collision check',
+              assemblyPhase: activePhase,
+              frame: i,
+            };
+            this.update3dModule(mesh, state, module, progress, true);
+            const check = this.checkCollisionBoxes(mesh, { phase: activePhase.label, frame: i });
+            proxiesChecked = Math.max(proxiesChecked, check.proxiesChecked || 0);
+            if (!check.safe) failures.push(...check.failures);
+          }
+          return { failures, proxiesChecked };
+        };
+        let sweep = runSweep();
+        let repaired = false;
+        const repairLog = [];
+        if (sweep.failures.length > 0) {
+          for (let attempt = 0; attempt < 3 && sweep.failures.length > 0; attempt += 1) {
+            const first = sweep.failures[0];
+            repairLog.push(`Attempt ${attempt + 1}: ${first.phase} frame ${first.frame}, ${first.parts.join('/')} -> ${first.suggestion}`);
+            this.autoRepairOffset = Math.min(0.04, (this.autoRepairOffset || 0) + 0.012);
+            repaired = true;
+            sweep = runSweep();
+          }
         }
-        this.collisionUnsafe = failures.length > 0;
-        this.collisionFailures = failures.slice(0, 4);
-        return { safe: failures.length === 0, failures };
+        this.collisionUnsafe = sweep.failures.length > 0;
+        this.collisionReports = sweep.failures.slice(0, 4);
+        this.collisionFailures = this.collisionReports.map((failure) => `${failure.phase} f${failure.frame}: ${failure.parts.join('/')}`);
+        this.sweepReport = {
+          safe: sweep.failures.length === 0,
+          failures: sweep.failures,
+          framesChecked: samples + 1,
+          proxiesChecked: sweep.proxiesChecked,
+          repaired,
+          repairLog,
+        };
+        this.section.dataset.sweepSafe = String(this.sweepReport.safe);
+        this.section.dataset.sweepFailures = this.collisionFailures.join(' | ');
+        return this.sweepReport;
       }
 
       update3dModule(mesh, state, module, progress, validationOnly = false) {
         const { pose, top } = state;
         const p = progress.transform;
+        const phaseValue = (phaseId) => phaseProgress(this.mechanism, phaseId, p);
+        const railP = phaseValue('rail-slide');
+        const fillerP = phaseValue('filler-rise');
+        const leafDeployP = phaseValue('leaf-deploy');
+        const hingeP = phaseValue('hinge-rotate');
+        const supportP = phaseValue('support-lock');
+        const panelFoldP = phaseValue('panel-fold');
+        const legDropP = phaseValue('leg-drop');
+        const leafRiseP = phaseValue('leaf-rise');
+        const motorP = Math.max(phaseValue('motor-start'), railP);
+        const liftP = phaseValue('lift-rise');
+        const hubP = phaseValue('hub-rotate');
+        const wingP = phaseValue('wing-deploy');
         const explode = this.mode === 'exploded' ? 1 : (progress.analysis || 0);
         const explodeVector = (x, z, amount = 0.08) => {
           const length = Math.hypot(x, z);
@@ -5074,7 +5401,7 @@ for p in plan.placements:
         mesh.top.visible = true;
         mesh.top.position.set(0, BASE_HEIGHT + 0.045 + top.lift + explode * 0.035, 0);
         mesh.top.scale.set(top.length, 0.055, top.width);
-        mesh.top.rotation.set(0, this.mechanism === 'origami' ? p * Math.PI / 4 : 0, 0);
+        mesh.top.rotation.set(0, this.mechanism === 'origami' ? hubP * Math.PI / 4 : 0, 0);
         mesh.top.material.color.set(colors[module.index % colors.length]);
         mesh.panels.forEach((panel) => { panel.visible = false; });
         mesh.details.forEach((part) => {
@@ -5110,52 +5437,57 @@ for p in plan.placements:
           mesh.rail.position.set(0, BASE_HEIGHT + 0.074, 0);
           mesh.rail.scale.set(top.length * .92, .026, .038);
           setDetail(0, 0, BASE_HEIGHT + 0.078, 0, .038, .026, top.width * .92, 0x7e8a8b);
-          setDetail(1, -top.length * .22 * p, deckY, -top.width * .22 * p, top.length * .34, .032, top.width * .34, 0x1e6b4a, 0, 0, 0, .58);
-          setDetail(2, top.length * .22 * p, deckY, top.width * .22 * p, top.length * .34, .032, top.width * .34, 0x1e6b4a, 0, 0, 0, .58);
-          setDetail(3, 0, BASE_HEIGHT + 0.142, 0, .08, .04, .08, 0xc58b3a);
-          setPanel(mesh.panels[0], -top.length * .18 * p, -top.width * .18 * p, top.length * .38, top.width * .38);
-          setPanel(mesh.panels[1], top.length * .18 * p, top.width * .18 * p, top.length * .38, top.width * .38);
+          setDetail(1, -top.length * .22 * railP, deckY + .04 * fillerP, -top.width * .22 * railP, top.length * .34, .032, top.width * .34, 0x1e6b4a, 0, 0, 0, .58);
+          setDetail(2, top.length * .22 * railP, deckY + .04 * fillerP, top.width * .22 * railP, top.length * .34, .032, top.width * .34, 0x1e6b4a, 0, 0, 0, .58);
+          setDetail(3, 0, BASE_HEIGHT + 0.142 + .035 * fillerP, 0, .08 + .12 * fillerP, .04, .08 + .12 * fillerP, 0xc58b3a);
+          setPanel(mesh.panels[0], -top.length * .25, -top.width * .25, top.length * .46, top.width * .46);
+          setPanel(mesh.panels[1], top.length * .25, -top.width * .25, top.length * .46, top.width * .46);
+          setPanel(mesh.panels[2], -top.length * .25, top.width * .25, top.length * .46, top.width * .46);
+          setPanel(mesh.panels[3], top.length * .25, top.width * .25, top.length * .46, top.width * .46);
         } else if (this.mechanism === 'butterfly') {
-          setDetail(0, -top.length * .32 * p, BASE_HEIGHT + 0.075, -top.width * .31, top.length * .38, .032, .038, 0x7e8a8b);
-          setDetail(1, top.length * .32 * p, BASE_HEIGHT + 0.075, top.width * .31, top.length * .38, .032, .038, 0x7e8a8b);
+          setDetail(0, -top.length * .32 * railP, BASE_HEIGHT + 0.075, -top.width * .31, top.length * .38, .032, .038, 0x7e8a8b);
+          setDetail(1, top.length * .32 * railP, BASE_HEIGHT + 0.075, top.width * .31, top.length * .38, .032, .038, 0x7e8a8b);
           setDetail(2, 0, BASE_HEIGHT + 0.14, 0, top.length * .58, .026, .034, 0x343a33);
-          setPanel(mesh.panels[0], 0, -top.width * .22, top.length * .82, top.width * .18, BASE_HEIGHT + 0.11 + top.lift, (1 - p) * 1.15);
-          setPanel(mesh.panels[1], 0, top.width * .22, top.length * .82, top.width * .18, BASE_HEIGHT + 0.11 + top.lift, -(1 - p) * 1.15);
+          setPanel(mesh.panels[0], 0, -top.width * .22, top.length * .82, top.width * .18, BASE_HEIGHT + 0.11 + top.lift + .05 * (1 - leafDeployP), (1 - leafDeployP) * 1.15);
+          setPanel(mesh.panels[1], 0, top.width * .22, top.length * .82, top.width * .18, BASE_HEIGHT + 0.11 + top.lift + .05 * (1 - leafDeployP), -(1 - leafDeployP) * 1.15);
         } else if (this.mechanism === 'book') {
           setDetail(0, -top.length * .48, deckY, 0, .03, .03, top.width, 0x343a33);
-          setDetail(1, -top.length * .33, BASE_HEIGHT + 0.19, top.width * .38, .035, .035, .38 * p, 0x7e8a8b, -0.78 * p);
-          setDetail(2, -top.length * .33, BASE_HEIGHT + 0.19, -top.width * .38, .035, .035, .38 * p, 0x7e8a8b, 0.78 * p);
-          setPanel(mesh.panels[0], top.length * .25 * p, 0, top.length * .45, top.width * .92, BASE_HEIGHT + 0.12 + top.lift, 0, 0, (1 - p) * -1.25);
+          setDetail(1, -top.length * .33, BASE_HEIGHT + 0.19, top.width * .38, .035, .035, .38 * supportP, 0x7e8a8b, -0.78 * supportP);
+          setDetail(2, -top.length * .33, BASE_HEIGHT + 0.19, -top.width * .38, .035, .035, .38 * supportP, 0x7e8a8b, 0.78 * supportP);
+          setPanel(mesh.panels[0], top.length * .25 * hingeP, 0, top.length * .45, top.width * .92, BASE_HEIGHT + 0.12 + top.lift + .04 * (1 - hingeP), 0, 0, (1 - hingeP) * -1.25);
         } else if (this.mechanism === 'console') {
-          setPanel(mesh.panels[0], 0, top.width * .28 * p, top.length * .88, top.width * .25, BASE_HEIGHT + 0.11 + top.lift, (1 - p) * -1.2);
-          setPanel(mesh.panels[1], -top.length * .36, top.width * .44 * p, .035, .035, BASE_HEIGHT * .52, 0, 0, 0);
-          mesh.panels[1].scale.y = BASE_HEIGHT * p;
-          setPanel(mesh.panels[2], top.length * .36, top.width * .44 * p, .035, .035, BASE_HEIGHT * .52, 0, 0, 0);
-          mesh.panels[2].scale.y = BASE_HEIGHT * p;
-          setDetail(0, -top.length * .36, BASE_HEIGHT * .5 * p, top.width * .43 * p, .035, Math.max(.02, BASE_HEIGHT * p), .035, 0x7e8a8b);
-          setDetail(1, top.length * .36, BASE_HEIGHT * .5 * p, top.width * .43 * p, .035, Math.max(.02, BASE_HEIGHT * p), .035, 0x7e8a8b);
+          setPanel(mesh.panels[0], 0, top.width * .28 * panelFoldP, top.length * .88, top.width * .25, BASE_HEIGHT + 0.11 + top.lift + .04 * (1 - panelFoldP), (1 - panelFoldP) * -1.2);
+          setPanel(mesh.panels[1], -top.length * .36, top.width * .44 * panelFoldP, .035, .035, BASE_HEIGHT * .52, 0, 0, 0);
+          mesh.panels[1].scale.y = BASE_HEIGHT * legDropP;
+          setPanel(mesh.panels[2], top.length * .36, top.width * .44 * panelFoldP, .035, .035, BASE_HEIGHT * .52, 0, 0, 0);
+          mesh.panels[2].scale.y = BASE_HEIGHT * legDropP;
+          setDetail(0, -top.length * .36, BASE_HEIGHT * .5 * legDropP, top.width * .43 * panelFoldP, .035, Math.max(.02, BASE_HEIGHT * legDropP), .035, 0x7e8a8b);
+          setDetail(1, top.length * .36, BASE_HEIGHT * .5 * legDropP, top.width * .43 * panelFoldP, .035, Math.max(.02, BASE_HEIGHT * legDropP), .035, 0x7e8a8b);
           setDetail(2, -top.length * .39, BASE_HEIGHT + .13, top.width * .18, .07, .035, .05, 0x1e6b4a);
           setDetail(3, top.length * .39, BASE_HEIGHT + .13, top.width * .18, .07, .035, .05, 0x1e6b4a);
         } else if (this.mechanism === 'center-leaf' || this.mechanism === 'electric') {
-          setDetail(0, -top.length * .3 * p, BASE_HEIGHT + 0.075, 0, .035, .03, top.width * .9, 0x7e8a8b);
-          setDetail(1, top.length * .3 * p, BASE_HEIGHT + 0.075, 0, .035, .03, top.width * .9, 0x7e8a8b);
-          setDetail(2, 0, deckY + .018 * p, 0, top.length * .2 * p, .035, top.width * .88, 0x1e6b4a, 0, 0, 0, .66);
-          setPanel(mesh.panels[0], 0, 0, top.length * .18 * p, top.width * .94, BASE_HEIGHT + 0.12 + top.lift, (1 - p) * 1.0);
+          setDetail(0, -top.length * .3 * railP, BASE_HEIGHT + 0.075, 0, .035, .03, top.width * .9, 0x7e8a8b);
+          setDetail(1, top.length * .3 * railP, BASE_HEIGHT + 0.075, 0, .035, .03, top.width * .9, 0x7e8a8b);
+          setDetail(2, 0, deckY + .04 * leafRiseP, 0, top.length * .2 * leafRiseP, .035, top.width * .88, 0x1e6b4a, 0, 0, 0, .66);
+          setPanel(mesh.panels[0], 0, 0, top.length * .18 * leafRiseP, top.width * .94, BASE_HEIGHT + 0.12 + top.lift + .04 * (1 - leafRiseP), (1 - leafRiseP) * 1.0);
         } else if (this.mechanism === 'lift') {
-          setPanel(mesh.panels[0], 0, 0, .045, .045, BASE_HEIGHT * .55 + top.lift * .5);
-          mesh.panels[0].scale.y = BASE_HEIGHT + top.lift;
-          setDetail(0, -.16, BASE_HEIGHT * .54 + top.lift * .42, 0, .035, .035, .58, 0x7e8a8b, 0.78 * p);
-          setDetail(1, .16, BASE_HEIGHT * .54 + top.lift * .42, 0, .035, .035, .58, 0x7e8a8b, -0.78 * p);
-          setDetail(2, 0, BASE_HEIGHT * .5 + top.lift * .5, 0, .14, Math.max(.05, top.lift + .12), .14, 0x1e6b4a, 0, 0, 0, .62);
+          setPanel(mesh.panels[0], 0, 0, .045, .045, BASE_HEIGHT * .55 + top.lift * .5 * liftP);
+          mesh.panels[0].scale.y = BASE_HEIGHT + top.lift * liftP;
+          setDetail(0, -.16, BASE_HEIGHT * .54 + top.lift * .42 * liftP, 0, .035, .035, .58, 0x7e8a8b, 0.78 * liftP);
+          setDetail(1, .16, BASE_HEIGHT * .54 + top.lift * .42 * liftP, 0, .035, .035, .58, 0x7e8a8b, -0.78 * liftP);
+          setDetail(2, 0, BASE_HEIGHT * .5 + top.lift * .5 * liftP, 0, .14, Math.max(.05, top.lift * liftP + .12), .14, 0x1e6b4a, 0, 0, 0, .62);
           setDetail(3, 0, deckY, 0, top.length * .72, .028, .035, 0xc58b3a);
         } else if (this.mechanism === 'origami') {
+          const wingNsP = wingP;
+          const wingEwP = easeInOut(clamp((wingP - 0.74) / 0.26, 0, 1));
+          const wingLowerP = easeInOut(clamp((wingP - 0.92) / 0.08, 0, 1));
           setDetail(0, 0, deckY, 0, .16, .045, .16, 0x1e6b4a);
-          setDetail(1, 0, deckY + .025, -top.width * .34 * p, top.length * .18, .025, top.width * .28 * p, 0xc58b3a, 0, Math.PI / 4);
-          setDetail(2, 0, deckY + .025, top.width * .34 * p, top.length * .18, .025, top.width * .28 * p, 0xc58b3a, 0, -Math.PI / 4);
-          setPanel(mesh.panels[0], 0, -top.width * .48 * p, top.length * .3, top.width * .26 * p, BASE_HEIGHT + 0.12 + top.lift, 0, Math.PI / 4);
-          setPanel(mesh.panels[1], 0, top.width * .48 * p, top.length * .3, top.width * .26 * p, BASE_HEIGHT + 0.12 + top.lift, 0, -Math.PI / 4);
-          setPanel(mesh.panels[2], -top.length * .48 * p, 0, top.length * .26 * p, top.width * .3, BASE_HEIGHT + 0.12 + top.lift, 0, -Math.PI / 4);
-          setPanel(mesh.panels[3], top.length * .48 * p, 0, top.length * .26 * p, top.width * .3, BASE_HEIGHT + 0.12 + top.lift, 0, Math.PI / 4);
+          setDetail(1, 0, deckY + .025, -top.width * .34 * wingNsP, top.length * .18, .025, top.width * .28 * wingNsP, 0xc58b3a, 0, Math.PI / 4);
+          setDetail(2, 0, deckY + .025, top.width * .34 * wingNsP, top.length * .18, .025, top.width * .28 * wingNsP, 0xc58b3a, 0, -Math.PI / 4);
+          setPanel(mesh.panels[0], 0, -top.width * .48 * wingNsP, top.length * .3, top.width * .26 * wingNsP, BASE_HEIGHT + 0.12 + top.lift + .04 * (1 - wingNsP), 0, Math.PI / 4);
+          setPanel(mesh.panels[1], 0, top.width * .48 * wingNsP, top.length * .3, top.width * .26 * wingNsP, BASE_HEIGHT + 0.12 + top.lift + .04 * (1 - wingNsP), 0, -Math.PI / 4);
+          setPanel(mesh.panels[2], -top.length * .48 * wingEwP, 0, top.length * .26 * wingEwP, top.width * .3, BASE_HEIGHT + 0.32 + top.lift - .20 * wingLowerP, 0, -Math.PI / 4);
+          setPanel(mesh.panels[3], top.length * .48 * wingEwP, 0, top.length * .26 * wingEwP, top.width * .3, BASE_HEIGHT + 0.32 + top.lift - .20 * wingLowerP, 0, Math.PI / 4);
         }
 
         if (this.mechanism === 'electric') {
@@ -5163,7 +5495,7 @@ for p in plan.placements:
           mesh.rail.position.set(0, BASE_HEIGHT + 0.075, 0);
           mesh.rail.scale.set(top.length * .9, .035, .045);
           mesh.motor.visible = true;
-          mesh.motor.position.set(-top.length * .36 + top.length * .72 * p, BASE_HEIGHT + 0.13 + explode * 0.035, -top.width * .58 - explode * 0.08);
+          mesh.motor.position.set(-top.length * .36 + top.length * .72 * motorP, BASE_HEIGHT + 0.13 + explode * 0.035, -top.width * .58 - explode * 0.08);
           mesh.motor.scale.set(.1, .08, .12);
           setDetail(3, 0, BASE_HEIGHT + .18, -top.width * .5, .42, .024, .018, 0x343a33);
           setDetail(4, top.length * .43, BASE_HEIGHT + .16, -top.width * .64, .055, .055, .055, 0x74a66f);
@@ -5171,9 +5503,13 @@ for p in plan.placements:
 
         const collisionBodies = this.collisionBodiesFor(top, p);
         this.applyCollisionBodies(mesh, collisionBodies, progress.showCollision || validationOnly);
-        const check = this.checkCollisionBoxes(mesh);
+        const check = this.checkCollisionBoxes(mesh, {
+          phase: progress.assemblyPhase?.label || progress.phase,
+          frame: progress.frame,
+        });
         this.collisionUnsafe = !check.safe;
-        this.collisionFailures = check.failures.slice(0, 4);
+        this.collisionReports = check.failures.slice(0, 4);
+        this.collisionFailures = this.collisionReports.map((failure) => `${failure.phase} f${failure.frame}: ${failure.parts.join('/')}`);
         if (!validationOnly && !check.safe) {
           this.paused = true;
           this.pauseButton.textContent = 'Resume animation';
@@ -5219,18 +5555,53 @@ for p in plan.placements:
         const safetyClass = this.collisionUnsafe ? 'risk' : 'safe';
         const safetyText = this.collisionUnsafe
           ? `collision risk: ${this.collisionFailures.join(', ')}`
-          : 'collision boxes clear';
+          : `sweep clear: ${(this.sweepReport?.framesChecked || 73)} frames`;
         const modeText = this.mode === 'collision' ? 'collision volumes visible'
           : this.mode === 'exploded' ? 'exploded analysis view'
           : 'transform sequence';
         const note = this.reference?.mechanismNotes || 'Mechanism reference';
+        const phaseText = progress.assemblyPhase?.label
+          ? `phase: ${progress.assemblyPhase.label} | frame ${progress.frame}`
+          : progress.phase;
+        const proxyText = `${this.moduleMeshes?.[0]?.activeCollisionBoxes?.length || 0}/${this.moduleMeshes?.[0]?.collisionBoxes?.length || 0} named proxies`;
         const html = [
           `<span class="analysis-chip">${escapeHtml(modeText)}</span>`,
-          `<span class="analysis-chip">${escapeHtml(progress.phase)}</span>`,
+          `<span class="analysis-chip">${escapeHtml(phaseText)}</span>`,
+          `<span class="analysis-chip">${escapeHtml(proxyText)}</span>`,
           `<span class="analysis-chip">${escapeHtml(note)}</span>`,
           `<span class="analysis-chip ${safetyClass}">${escapeHtml(safetyText)}</span>`,
         ].join('');
         if (this.overlay.innerHTML !== html) this.overlay.innerHTML = html;
+      }
+
+      configureOrthoCamera(camera, width, height, view) {
+        const aspect = width / Math.max(1, height);
+        const span = view === 'top' ? 2.55 : 1.72;
+        camera.left = -span * aspect / 2;
+        camera.right = span * aspect / 2;
+        camera.top = span * 0.52;
+        camera.bottom = -span * 0.36;
+        if (view === 'top') {
+          camera.top = span / 2;
+          camera.bottom = -span / 2;
+          camera.position.set(0, 4.2, 0);
+          camera.up.set(0, 0, -1);
+        } else if (view === 'front') {
+          camera.position.set(0, 0.72, 3.2);
+          camera.up.set(0, 1, 0);
+        } else {
+          camera.position.set(3.2, 0.72, 0);
+          camera.up.set(0, 1, 0);
+        }
+        camera.lookAt(0, 0.38, 0);
+        camera.updateProjectionMatrix();
+      }
+
+      renderInspectionView(camera, viewport) {
+        this.renderer.setViewport(viewport.x, viewport.y, viewport.w, viewport.h);
+        this.renderer.setScissor(viewport.x, viewport.y, viewport.w, viewport.h);
+        this.renderer.clear(true, true, true);
+        this.renderer.render(this.scene, camera);
       }
 
       draw3d(progress) {
@@ -5238,18 +5609,31 @@ for p in plan.placements:
         const width = Math.max(1, rect.width);
         const height = Math.max(1, rect.height);
         this.renderer.setSize(width, height, false);
-        this.camera.aspect = width / height;
+        const halfW = Math.floor(width / 2);
+        const halfH = Math.floor(height / 2);
+        const viewports = [
+          { camera: this.camera, x: 0, y: halfH, w: halfW, h: height - halfH },
+          { camera: this.frontCamera, x: halfW, y: halfH, w: width - halfW, h: height - halfH },
+          { camera: this.sideCamera, x: 0, y: 0, w: halfW, h: halfH },
+          { camera: this.topCamera, x: halfW, y: 0, w: width - halfW, h: halfH },
+        ];
+        this.camera.aspect = viewports[0].w / Math.max(1, viewports[0].h);
         this.camera.fov = width < 640 ? 58 : 42;
         this.camera.position.set(1.75, 1.65, 2.18);
         this.camera.lookAt(0, 0.42, 0.02);
         this.camera.updateProjectionMatrix();
+        this.configureOrthoCamera(this.frontCamera, viewports[1].w, viewports[1].h, 'front');
+        this.configureOrthoCamera(this.sideCamera, viewports[2].w, viewports[2].h, 'side');
+        this.configureOrthoCamera(this.topCamera, viewports[3].w, viewports[3].h, 'top');
         this.target3d.scale.set(this.dimensions.length, 1, this.dimensions.width);
         this.target3d.material.opacity = progress.phase === 'locked' ? 0.3 : 0.18;
         this.modules.forEach((module, index) => this.update3dModule(this.moduleMeshes[index], this.moduleState(module, progress), module, progress));
         this.updateArrows3d(progress);
         this.updateOverlay(progress);
-        this.scene.rotation.y = 0.1 * Math.sin(performance.now() * 0.00024);
-        this.renderer.render(this.scene, this.camera);
+        this.scene.rotation.y = 0;
+        this.renderer.setScissorTest(true);
+        for (const viewport of viewports) this.renderInspectionView(viewport.camera, viewport);
+        this.renderer.setScissorTest(false);
       }
 
       update(time) {
@@ -5259,7 +5643,9 @@ for p in plan.placements:
         if (this.status) {
           const paused = this.paused ? 'paused' : 'running';
           const collision = this.collisionUnsafe ? `collision risk ${this.collisionFailures.join(', ')}` : 'collision clear';
-          this.status.textContent = `${mechanismNames[this.mechanism]} | ${this.dimensions.length.toFixed(1)}m x ${this.dimensions.width.toFixed(1)}m | ${progress.phase} | ${this.mode} | ${collision} | ${paused}`;
+          const sweep = this.sweepReport?.safe ? `${this.sweepReport.framesChecked}f sweep clear` : 'sweep needs repair';
+          const assembly = progress.assemblyPhase?.label || progress.phase;
+          this.status.textContent = `${mechanismNames[this.mechanism]} | ${this.dimensions.length.toFixed(1)}m x ${this.dimensions.width.toFixed(1)}m | ${assembly} | ${this.mode} | ${collision} | ${sweep} | ${paused}`;
         }
       }
     }
