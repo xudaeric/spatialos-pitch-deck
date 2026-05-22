@@ -5650,13 +5650,841 @@ for p in plan.placements:
       }
     }
 
+    const RigidTargetPresets = {
+      geometric: [{ length: BASE, width: BASE }, { length: 1.2, width: BASE }, { length: BASE, width: 1.2 }, { length: 1.2, width: 1.2 }],
+      butterfly: [{ length: BASE, width: BASE }, { length: 1.2, width: BASE }, { length: 1.2, width: 1.2 }],
+      book: [{ length: BASE, width: BASE }, { length: 1.2, width: BASE }],
+      console: [{ length: BASE, width: BASE }, { length: BASE, width: 1.2 }, { length: 1.2, width: 1.2 }],
+      'center-leaf': [{ length: BASE, width: BASE }, { length: 1.2, width: BASE }, { length: 1.2, width: 1.2 }],
+      electric: [{ length: BASE, width: BASE }, { length: 1.2, width: BASE }, { length: 1.2, width: 1.2 }],
+      lift: [{ length: BASE, width: BASE }, { length: 1.2, width: BASE }, { length: 1.2, width: 1.2 }],
+      origami: [{ length: BASE, width: BASE }, { length: 1.2, width: BASE }, { length: BASE, width: 1.2 }, { length: 1.2, width: 1.2 }],
+    };
+
+    function nearestRigidPreset(mechanism, request) {
+      const presets = RigidTargetPresets[mechanism] || RigidTargetPresets.geometric;
+      return presets
+        .map((preset) => ({
+          ...preset,
+          score: Math.abs(preset.length - request.length) + Math.abs(preset.width - request.width),
+        }))
+        .sort((a, b) => a.score - b.score || a.length - b.length || a.width - b.width)[0];
+    }
+
+    function randomRigidPreset(mechanism, current) {
+      const presets = RigidTargetPresets[mechanism] || RigidTargetPresets.geometric;
+      const options = presets.filter((preset) => Math.abs(preset.length - current.length) > 0.01 || Math.abs(preset.width - current.width) > 0.01);
+      const pool = options.length ? options : presets;
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function rigidPhaseProgress(mechanism, phaseId, progress, delay = 0) {
+      const adjusted = clamp(progress - delay, 0, 1);
+      return phaseProgress(mechanism, phaseId, adjusted);
+    }
+
+    function rigidObbFromPart(part) {
+      part.collisionProxy.updateMatrixWorld(true);
+      const matrix = part.collisionProxy.matrixWorld;
+      const center = new THREE.Vector3().setFromMatrixPosition(matrix);
+      const xAxis = new THREE.Vector3(1, 0, 0).transformDirection(matrix).normalize();
+      const yAxis = new THREE.Vector3(0, 1, 0).transformDirection(matrix).normalize();
+      const zAxis = new THREE.Vector3(0, 0, 1).transformDirection(matrix).normalize();
+      return {
+        part,
+        center,
+        axes: [xAxis, yAxis, zAxis],
+        half: new THREE.Vector3(part.collisionSize.x / 2, part.collisionSize.y / 2, part.collisionSize.z / 2),
+      };
+    }
+
+    function rigidObbRadius(obb, axis) {
+      return obb.half.x * Math.abs(axis.dot(obb.axes[0]))
+        + obb.half.y * Math.abs(axis.dot(obb.axes[1]))
+        + obb.half.z * Math.abs(axis.dot(obb.axes[2]));
+    }
+
+    function rigidObbsOverlap(a, b, epsilon = 0.002) {
+      const axes = [...a.axes, ...b.axes];
+      for (const left of a.axes) {
+        for (const right of b.axes) {
+          const cross = new THREE.Vector3().crossVectors(left, right);
+          if (cross.lengthSq() > 0.000001) axes.push(cross.normalize());
+        }
+      }
+      const delta = new THREE.Vector3().subVectors(b.center, a.center);
+      for (const axis of axes) {
+        const distance = Math.abs(delta.dot(axis));
+        const radius = rigidObbRadius(a, axis) + rigidObbRadius(b, axis);
+        if (distance > radius - epsilon) return false;
+      }
+      return true;
+    }
+
+    function rigidObbMinY(obb) {
+      let minY = Infinity;
+      for (const sx of [-1, 1]) {
+        for (const sy of [-1, 1]) {
+          for (const sz of [-1, 1]) {
+            const vertex = obb.center.clone()
+              .add(obb.axes[0].clone().multiplyScalar(sx * obb.half.x))
+              .add(obb.axes[1].clone().multiplyScalar(sy * obb.half.y))
+              .add(obb.axes[2].clone().multiplyScalar(sz * obb.half.z));
+            minY = Math.min(minY, vertex.y);
+          }
+        }
+      }
+      return minY;
+    }
+
+    function rigidMotionPhase(mechanism, role) {
+      const table = {
+        geometric: { length: 'rail-slide', width: 'filler-rise', corner: 'lock', detail: 'rail-slide' },
+        butterfly: { length: 'rail-slide', width: 'leaf-deploy', corner: 'lock', detail: 'rail-slide' },
+        book: { length: 'hinge-rotate', width: 'support-lock', corner: 'support-lock', detail: 'support-lock' },
+        console: { length: 'panel-fold', width: 'panel-fold', corner: 'lock', detail: 'leg-drop' },
+        'center-leaf': { length: 'rail-slide', width: 'leaf-rise', corner: 'lock', detail: 'leaf-rise' },
+        electric: { length: 'rail-slide', width: 'leaf-rise', corner: 'lock', detail: 'motor-start' },
+        lift: { length: 'lift-rise', width: 'leaf-deploy', corner: 'lock', detail: 'lift-rise' },
+        origami: { length: 'hub-rotate', width: 'wing-deploy', corner: 'lock', detail: 'wing-deploy' },
+      };
+      return table[mechanism]?.[role] || 'lock';
+    }
+
+    function rigidStagedPose(stowed, deployed, amount, highY) {
+      const t = clamp(amount, 0, 1);
+      if (t <= 0) return { ...stowed };
+      if (t >= 1) return { ...deployed };
+      const liftT = clamp(t / 0.24, 0, 1);
+      const travelT = clamp((t - 0.18) / 0.52, 0, 1);
+      const lowerT = clamp((t - 0.7) / 0.3, 0, 1);
+      const pose = {
+        x: lerp(stowed.x, deployed.x, easeInOut(travelT)),
+        y: lerp(stowed.y, highY, easeInOut(liftT)),
+        z: lerp(stowed.z, deployed.z, easeInOut(travelT)),
+        rx: lerp(stowed.rx || 0, deployed.rx || 0, easeInOut(t)),
+        ry: lerp(stowed.ry || 0, deployed.ry || 0, easeInOut(t)),
+        rz: lerp(stowed.rz || 0, deployed.rz || 0, easeInOut(t)),
+      };
+      pose.y = lerp(pose.y, deployed.y, easeInOut(lowerT));
+      return pose;
+    }
+
+    class RigidTransformableTableDemo {
+      constructor(section, index) {
+        this.section = section;
+        this.index = index;
+        this.mechanism = section.dataset.transformMechanism;
+        this.canvas2d = section.querySelector('canvas[data-view="2d"]');
+        this.canvas3d = section.querySelector('canvas[data-view="3d"]');
+        this.ctx = this.canvas2d.getContext('2d');
+        this.status = section.querySelector('[data-transform-status]');
+        this.lengthInput = section.querySelector('[data-length-input]');
+        this.widthInput = section.querySelector('[data-width-input]');
+        this.pauseButton = section.querySelector('[data-pause-toggle]');
+        this.controls = section.querySelector('[data-transform-controls]');
+        this.reference = MechanismReferenceCatalog[this.mechanism];
+        this.mode = 'transform';
+        this.paused = false;
+        this.elapsed = 0;
+        this.lastTime = performance.now();
+        this.collisionUnsafe = false;
+        this.collisionFailures = [];
+        this.repairLift = 0;
+        this.modules = [{ id: 'C1' }];
+        this.requestedDimensions = {
+          length: Number(this.lengthInput.value) || BASE,
+          width: Number(this.widthInput.value) || BASE,
+        };
+        this.dimensions = nearestRigidPreset(this.mechanism, this.requestedDimensions);
+        this.renderModeControls();
+        this.renderReferences();
+        this.setup3d();
+        this.bindControls(section);
+        this.startCommand(this.requestedDimensions, true);
+      }
+
+      renderModeControls() {
+        if (!this.controls || !this.status) return;
+        const segment = document.createElement('div');
+        segment.className = 'mode-segment';
+        segment.setAttribute('aria-label', 'Transform view mode');
+        segment.innerHTML = ['transform', 'exploded', 'collision'].map((mode) => (
+          `<button type="button" data-transform-mode="${mode}" class="${mode === this.mode ? 'active' : ''}">${mode}</button>`
+        )).join('');
+        this.status.before(segment);
+        this.modeButtons = Array.from(segment.querySelectorAll('[data-transform-mode]'));
+      }
+
+      renderReferences() {
+        if (!this.controls || !this.reference) return;
+        const referenceGrid = document.createElement('div');
+        referenceGrid.className = 'reference-grid';
+        referenceGrid.innerHTML = `
+          <article class="reference-card">
+            <div class="reference-media">
+              <img src="${escapeHtml(this.reference.productPhoto)}" alt="${escapeHtml(this.reference.productAlt)}" loading="lazy">
+              <span class="reference-fallback">Remote reference image</span>
+            </div>
+            <div class="reference-meta">
+              <strong>Real reference</strong>
+              <span>${escapeHtml(this.reference.sourceName)}</span>
+              <a href="${escapeHtml(this.reference.sourceUrl)}" target="_blank" rel="noreferrer">Source link</a>
+            </div>
+          </article>
+          <article class="reference-card">
+            <div class="reference-media reference-schematic">${engineeringSvg(this.mechanism)}</div>
+            <div class="reference-meta">
+              <strong>Engineering reference</strong>
+              <span>Source-informed schematic, redrawn for this demo</span>
+              <a href="${escapeHtml(this.reference.engineeringReference)}" target="_blank" rel="noreferrer">Engineering source</a>
+            </div>
+          </article>
+        `;
+        referenceGrid.querySelectorAll('img').forEach((img) => {
+          img.addEventListener('error', () => img.classList.add('reference-failed'));
+        });
+        this.controls.after(referenceGrid);
+      }
+
+      bindControls(section) {
+        section.querySelector('[data-apply-command]').addEventListener('click', () => this.startCommand(this.readInputs()));
+        section.querySelector('[data-random-command]').addEventListener('click', () => {
+          const dims = randomRigidPreset(this.mechanism, this.dimensions);
+          this.lengthInput.value = dims.length.toFixed(1);
+          this.widthInput.value = dims.width.toFixed(1);
+          this.startCommand(dims);
+        });
+        this.pauseButton.addEventListener('click', () => {
+          this.paused = !this.paused;
+          this.pauseButton.textContent = this.paused ? 'Resume animation' : 'Stop animation';
+          this.lastTime = performance.now();
+        });
+        for (const input of [this.lengthInput, this.widthInput]) {
+          input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') this.startCommand(this.readInputs());
+          });
+        }
+        for (const button of this.modeButtons || []) {
+          button.addEventListener('click', () => {
+            this.mode = button.dataset.transformMode || 'transform';
+            this.updateModeButtons();
+          });
+        }
+      }
+
+      updateModeButtons() {
+        for (const button of this.modeButtons || []) {
+          button.classList.toggle('active', button.dataset.transformMode === this.mode);
+        }
+      }
+
+      readInputs() {
+        return {
+          length: Number(this.lengthInput.value) || BASE,
+          width: Number(this.widthInput.value) || BASE,
+        };
+      }
+
+      setup3d() {
+        this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas3d, antialias: true, alpha: true });
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        this.renderer.autoClear = false;
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+        this.frontCamera = new THREE.OrthographicCamera(-1.4, 1.4, 1.1, -0.35, 0.1, 100);
+        this.sideCamera = new THREE.OrthographicCamera(-1.4, 1.4, 1.1, -0.35, 0.1, 100);
+        this.topCamera = new THREE.OrthographicCamera(-1.4, 1.4, 1.4, -1.4, 0.1, 100);
+        this.scene.add(new THREE.HemisphereLight(0xf7f4ec, 0x242822, 2.4));
+        const key = new THREE.DirectionalLight(0xffffff, 2.1);
+        key.position.set(4, 6, 4);
+        this.scene.add(key);
+        const floor = new THREE.Mesh(
+          new THREE.PlaneGeometry(6.8, 6.2),
+          new THREE.MeshStandardMaterial({ color: 0x242822, roughness: 0.92, metalness: 0.04 })
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -0.02;
+        this.scene.add(floor);
+        const grid = new THREE.GridHelper(3.2, 12, 0x74a66f, 0x4b5349);
+        grid.position.y = 0.002;
+        this.scene.add(grid);
+        this.target3d = new THREE.Mesh(
+          new THREE.BoxGeometry(1, 0.025, 1),
+          new THREE.MeshStandardMaterial({ color: 0x74a66f, transparent: true, opacity: 0.2, roughness: 0.55 })
+        );
+        this.target3d.position.y = BASE_HEIGHT + 0.09;
+        this.scene.add(this.target3d);
+        this.arrowGroup = new THREE.Group();
+        this.scene.add(this.arrowGroup);
+        this.arrows = Array.from({ length: 4 }, () => {
+          const arrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, BASE_HEIGHT + 0.3, 0), 0.34, 0x74a66f, 0.09, 0.045);
+          arrow.visible = false;
+          this.arrowGroup.add(arrow);
+          return arrow;
+        });
+        this.overlay = document.createElement('div');
+        this.overlay.className = 'mechanism-overlay';
+        this.canvas3d.parentElement.append(this.overlay);
+        this.cameraLabels = document.createElement('div');
+        this.cameraLabels.className = 'camera-label-grid';
+        this.cameraLabels.innerHTML = '<span>Perspective</span><span>Front</span><span>Side</span><span>Top</span>';
+        this.canvas3d.parentElement.append(this.cameraLabels);
+        this.moduleMeshes = [this.makeRigidModel()];
+        this.section.dataset.rigidDemo = 'true';
+        this.section.dataset.rigidPartCount = String(this.moduleMeshes[0].mechanicalParts.length);
+      }
+
+      materialSet() {
+        return {
+          cabinet: new THREE.MeshStandardMaterial({ color: 0xd8d2c4, roughness: 0.76, metalness: 0.04 }),
+          dark: new THREE.MeshStandardMaterial({ color: 0x343a33, roughness: 0.7, metalness: 0.08 }),
+          trim: new THREE.MeshStandardMaterial({ color: 0x7e8a8b, roughness: 0.42, metalness: 0.35 }),
+          leaf: new THREE.MeshStandardMaterial({ color: 0xead9bd, roughness: 0.65, metalness: 0.04 }),
+          green: new THREE.MeshStandardMaterial({ color: 0x1e6b4a, roughness: 0.48, metalness: 0.12 }),
+        };
+      }
+
+      makeRigidModel() {
+        const group = new THREE.Group();
+        const mats = this.materialSet();
+        const parts = [];
+        const addPart = (spec) => {
+          const pivot = new THREE.Group();
+          pivot.name = `${spec.name}_PIVOT`;
+          const mesh = new THREE.Mesh(new THREE.BoxGeometry(spec.size.x, spec.size.y, spec.size.z), spec.material);
+          mesh.name = spec.name;
+          const proxy = new THREE.Mesh(
+            new THREE.BoxGeometry(spec.collisionSize?.x || spec.size.x, spec.collisionSize?.y || spec.size.y, spec.collisionSize?.z || spec.size.z),
+            new THREE.MeshBasicMaterial({ color: 0x74a66f, transparent: true, opacity: 0.12, wireframe: true, depthTest: false })
+          );
+          proxy.name = `${spec.name}_COL`;
+          proxy.visible = false;
+          pivot.add(mesh);
+          pivot.add(proxy);
+          group.add(pivot);
+          const part = {
+            ...spec,
+            group: pivot,
+            mesh,
+            collisionProxy: proxy,
+            collisionSize: spec.collisionSize || spec.size,
+            initialScale: mesh.scale.clone(),
+            proxyInitialScale: proxy.scale.clone(),
+          };
+          proxy.userData.meta = {
+            name: spec.name,
+            proxy: proxy.name,
+            parent: spec.parent,
+            pivot: spec.pivot,
+            axis: spec.axis,
+            range: spec.range,
+            trajectory: spec.trajectory,
+            phase: spec.phaseIds.join(','),
+            fixedSize: spec.size,
+            collisionShape: 'box',
+          };
+          mesh.userData.meta = proxy.userData.meta;
+          parts.push(part);
+          return part;
+        };
+
+        const wallMat = mats.cabinet;
+        [
+          ['cabinet_left_wall', { x: 0.03, y: BASE_HEIGHT, z: BASE }, { x: -BASE / 2 - 0.015, y: BASE_HEIGHT / 2, z: 0 }],
+          ['cabinet_right_wall', { x: 0.03, y: BASE_HEIGHT, z: BASE }, { x: BASE / 2 + 0.015, y: BASE_HEIGHT / 2, z: 0 }],
+          ['cabinet_back_wall', { x: BASE, y: BASE_HEIGHT, z: 0.03 }, { x: 0, y: BASE_HEIGHT / 2, z: BASE / 2 + 0.015 }],
+          ['cabinet_front_rail', { x: BASE, y: 0.12, z: 0.03 }, { x: 0, y: BASE_HEIGHT - 0.06, z: -BASE / 2 - 0.015 }],
+          ['cabinet_bottom_panel', { x: BASE, y: 0.04, z: BASE }, { x: 0, y: 0.02, z: 0 }],
+        ].forEach(([name, size, pose]) => addPart({
+          name,
+          size,
+          material: wallMat,
+          parent: 'root',
+          pivot: 'part center',
+          axis: 'none',
+          range: 'fixed',
+          trajectory: 'fixed cabinet shell',
+          phaseIds: ['static'],
+          role: 'static',
+          stowed: pose,
+          deployed: pose,
+        }));
+        addPart({
+          name: 'front_handle',
+          size: { x: 0.16, y: 0.018, z: 0.018 },
+          material: mats.trim,
+          parent: 'cabinet_front_rail',
+          pivot: 'front face',
+          axis: 'none',
+          range: 'fixed',
+          trajectory: 'fixed handle',
+          phaseIds: ['static'],
+          role: 'static',
+          stowed: { x: 0.18, y: BASE_HEIGHT * 0.45, z: -BASE / 2 - 0.06 },
+          deployed: { x: 0.18, y: BASE_HEIGHT * 0.45, z: -BASE / 2 - 0.06 },
+        });
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z], index) => addPart({
+          name: `caster_${index + 1}`,
+          size: { x: 0.07, y: 0.05, z: 0.07 },
+          material: mats.dark,
+          parent: 'cabinet_bottom_panel',
+          pivot: 'wheel axle proxy',
+          axis: 'X',
+          range: 'free roll',
+          trajectory: 'fixed caster box proxy',
+          phaseIds: ['static'],
+          role: 'static',
+          stowed: { x: x * BASE * 0.34, y: 0.075, z: z * BASE * 0.34 },
+          deployed: { x: x * BASE * 0.34, y: 0.075, z: z * BASE * 0.34 },
+        }));
+        addPart({
+          name: 'top_main',
+          size: { x: BASE, y: 0.04, z: BASE },
+          material: mats.leaf.clone(),
+          parent: 'cabinet_shell',
+          pivot: 'top center datum',
+          axis: this.mechanism === 'origami' ? 'Y' : 'none',
+          range: this.mechanism === 'origami' ? '0-45deg' : 'fixed',
+          trajectory: 'fixed central tabletop datum',
+          phaseIds: ['static'],
+          role: 'static',
+          stowed: { x: 0, y: BASE_HEIGHT + 0.06, z: 0 },
+          deployed: { x: 0, y: BASE_HEIGHT + 0.06, z: 0 },
+        });
+
+        const prefix = this.mechanism.replace(/[^a-z0-9]/g, '_');
+        const leafSpecs = [
+          ['left_leaf', 'length', { x: 0.3, y: 0.035, z: BASE }, { x: -0.82, y: 0.68, z: 0 }, { x: -0.45, y: BASE_HEIGHT + 0.06, z: 0 }],
+          ['right_leaf', 'length', { x: 0.3, y: 0.035, z: BASE }, { x: 0.82, y: 0.74, z: 0 }, { x: 0.45, y: BASE_HEIGHT + 0.06, z: 0 }],
+          ['front_leaf', 'width', { x: BASE, y: 0.035, z: 0.3 }, { x: 0, y: 0.8, z: -0.82 }, { x: 0, y: BASE_HEIGHT + 0.06, z: -0.45 }],
+          ['back_leaf', 'width', { x: BASE, y: 0.035, z: 0.3 }, { x: 0, y: 0.86, z: 0.82 }, { x: 0, y: BASE_HEIGHT + 0.06, z: 0.45 }],
+          ['corner_fl', 'corner', { x: 0.3, y: 0.032, z: 0.3 }, { x: -0.82, y: 0.92, z: -0.82 }, { x: -0.45, y: BASE_HEIGHT + 0.06, z: -0.45 }],
+          ['corner_fr', 'corner', { x: 0.3, y: 0.032, z: 0.3 }, { x: 0.82, y: 0.98, z: -0.82 }, { x: 0.45, y: BASE_HEIGHT + 0.06, z: -0.45 }],
+          ['corner_bl', 'corner', { x: 0.3, y: 0.032, z: 0.3 }, { x: -0.82, y: 1.04, z: 0.82 }, { x: -0.45, y: BASE_HEIGHT + 0.06, z: 0.45 }],
+          ['corner_br', 'corner', { x: 0.3, y: 0.032, z: 0.3 }, { x: 0.82, y: 1.1, z: 0.82 }, { x: 0.45, y: BASE_HEIGHT + 0.06, z: 0.45 }],
+        ];
+        leafSpecs.forEach(([suffix, role, size, stowed, deployed]) => addPart({
+          name: `${prefix}_${suffix}`,
+          size,
+          material: role === 'corner' ? mats.green.clone() : mats.leaf.clone(),
+          parent: 'top_main',
+          pivot: role === 'length' ? 'linear X rail truck' : role === 'width' ? 'linear Z rail / hinge truck' : 'corner lock hinge',
+          axis: role === 'length' ? 'X' : role === 'width' ? 'Z / hinge X' : 'compound X/Z',
+          range: role === 'corner' ? '0-0.3m diagonal + lock' : '0-0.3m travel',
+          trajectory: `${mechanismNames[this.mechanism]} rigid ${role} deployment`,
+          phaseIds: [rigidMotionPhase(this.mechanism, role)],
+          role,
+          stowed,
+          deployed,
+        }));
+        this.addMechanismDetails(addPart, mats, prefix);
+        this.scene.add(group);
+        const partByName = new Map(parts.map((part) => [part.name, part]));
+        return {
+          group,
+          mechanicalParts: parts,
+          partByName,
+          collisionBoxes: parts.map((part) => part.collisionProxy),
+          activeCollisionBoxes: [],
+        };
+      }
+
+      addMechanismDetails(addPart, mats, prefix) {
+        const detail = (suffix, size, stowed, deployed, phase, axis, trajectory, material = mats.trim) => addPart({
+          name: `${prefix}_${suffix}`,
+          size,
+          material: material.clone ? material.clone() : material,
+          parent: 'mechanism frame',
+          pivot: `${suffix} pivot`,
+          axis,
+          range: phase === 'static' ? 'fixed' : 'bounded mechanical travel',
+          trajectory,
+          phaseIds: [phase],
+          role: 'detail',
+          stowed,
+          deployed,
+        });
+        detail('rail_x', { x: 1.18, y: 0.024, z: 0.035 }, { x: 0, y: 1.48, z: 0 }, { x: 0, y: 1.48, z: 0 }, rigidMotionPhase(this.mechanism, 'detail'), 'X', 'fixed rail body in overhead analysis layer');
+        detail('rail_z', { x: 0.035, y: 0.024, z: 1.18 }, { x: 0, y: 1.54, z: 0 }, { x: 0, y: 1.54, z: 0 }, rigidMotionPhase(this.mechanism, 'detail'), 'Z', 'fixed rail body in overhead analysis layer');
+        if (this.mechanism === 'electric') {
+          detail('motor_carriage', { x: 0.12, y: 0.08, z: 0.08 }, { x: -0.42, y: 0.7, z: -0.68 }, { x: 0.42, y: 0.7, z: -0.68 }, 'motor-start', 'X', 'linear motor carriage', mats.green);
+          detail('status_light', { x: 0.05, y: 0.05, z: 0.05 }, { x: 0.74, y: 0.7, z: -0.72 }, { x: 0.74, y: 0.7, z: -0.72 }, 'lock', 'none', 'fixed status light', mats.green);
+        } else if (this.mechanism === 'lift') {
+          detail('lift_column', { x: 0.12, y: 0.22, z: 0.12 }, { x: 0, y: 0.28, z: 0 }, { x: 0, y: 0.39, z: 0 }, 'lift-rise', 'Y', 'vertical telescopic lift', mats.green);
+          detail('scissor_left', { x: 0.035, y: 0.035, z: 0.34 }, { x: -0.16, y: 0.34, z: 0 }, { x: -0.16, y: 0.42, z: 0, rx: 0.52 }, 'lift-rise', 'X', 'scissor linkage rotation');
+          detail('scissor_right', { x: 0.035, y: 0.035, z: 0.34 }, { x: 0.16, y: 0.34, z: 0 }, { x: 0.16, y: 0.42, z: 0, rx: -0.52 }, 'lift-rise', 'X', 'scissor linkage rotation');
+        } else if (this.mechanism === 'console') {
+          detail('support_leg_left', { x: 0.05, y: 0.46, z: 0.05 }, { x: -0.66, y: 0.32, z: 0.56, rx: -1.2 }, { x: -0.66, y: 0.25, z: 0.56 }, 'leg-drop', 'X', 'folding support leg');
+          detail('support_leg_right', { x: 0.05, y: 0.46, z: 0.05 }, { x: 0.66, y: 0.32, z: 0.56, rx: -1.2 }, { x: 0.66, y: 0.25, z: 0.56 }, 'leg-drop', 'X', 'folding support leg');
+        } else {
+          detail('lock_pin_left', { x: 0.05, y: 0.05, z: 0.05 }, { x: -0.34, y: 0.62, z: 0.34 }, { x: -0.34, y: 0.62, z: 0.34 }, 'lock', 'none', 'fixed lock pin', mats.green);
+          detail('lock_pin_right', { x: 0.05, y: 0.05, z: 0.05 }, { x: 0.34, y: 0.62, z: 0.34 }, { x: 0.34, y: 0.62, z: 0.34 }, 'lock', 'none', 'fixed lock pin', mats.green);
+        }
+      }
+
+      startCommand(requested, initial = false) {
+        this.requestedDimensions = {
+          length: clamp(Number(requested.length) || BASE, BASE, 1.2),
+          width: clamp(Number(requested.width) || BASE, BASE, 1.2),
+        };
+        this.dimensions = nearestRigidPreset(this.mechanism, this.requestedDimensions);
+        this.lengthInput.value = this.requestedDimensions.length.toFixed(1);
+        this.widthInput.value = this.requestedDimensions.width.toFixed(1);
+        this.repairLift = 0;
+        this.elapsed = initial ? commandMs * 0.55 : 0;
+        this.lastTime = performance.now();
+        this.sweepReport = this.validateCollisionPlan(96, this.dimensions);
+      }
+
+      currentProgress(time) {
+        if (!this.paused) this.elapsed += Math.min(48, time - this.lastTime);
+        this.lastTime = time;
+        if (this.elapsed > totalMs) this.startCommand(randomRigidPreset(this.mechanism, this.dimensions));
+        const analysis = easeInOut(clamp((this.elapsed - commandMs) / analysisMs, 0, 1));
+        const transform = easeInOut(clamp((this.elapsed - commandMs - analysisMs) / transformMs, 0, 1));
+        return {
+          transform,
+          analysis: this.mode === 'exploded' ? 1 : (this.elapsed < commandMs + analysisMs ? analysis : 0),
+          showCollision: this.mode === 'collision',
+          phase: this.elapsed < commandMs ? 'command'
+            : this.elapsed < commandMs + analysisMs ? 'exploded analysis'
+            : this.elapsed < commandMs + analysisMs + transformMs ? 'rigid transform'
+            : 'locked',
+          assemblyPhase: assemblyPhaseAt(this.mechanism, transform),
+          frame: Math.round(transform * 96),
+        };
+      }
+
+      partShouldDeploy(part, target) {
+        if (part.role === 'length') return target.length > BASE + 0.01;
+        if (part.role === 'width') return target.width > BASE + 0.01;
+        if (part.role === 'corner') return target.length > BASE + 0.01 && target.width > BASE + 0.01;
+        if (part.role === 'detail') return target.length > BASE + 0.01 || target.width > BASE + 0.01;
+        return true;
+      }
+
+      poseForPart(part, progress, target) {
+        if (part.role === 'static') return { ...part.stowed };
+        const phaseId = part.phaseIds[0];
+        const delay = part.role === 'corner' ? 0.05 : 0;
+        const amount = this.partShouldDeploy(part, target) ? rigidPhaseProgress(this.mechanism, phaseId, progress.transform, delay) : 0;
+        if (part.role === 'detail') {
+          return {
+            x: lerp(part.stowed.x, part.deployed.x, amount),
+            y: lerp(part.stowed.y, part.deployed.y, amount),
+            z: lerp(part.stowed.z, part.deployed.z, amount),
+            rx: lerp(part.stowed.rx || 0, part.deployed.rx || 0, amount),
+            ry: lerp(part.stowed.ry || 0, part.deployed.ry || 0, amount),
+            rz: lerp(part.stowed.rz || 0, part.deployed.rz || 0, amount),
+          };
+        }
+        const highY = Math.max(part.stowed.y + 0.08 + this.repairLift, 1.16 + this.repairLift);
+        const pose = rigidStagedPose(part.stowed, part.deployed, amount, highY);
+        if (this.mechanism === 'book' && part.role === 'length') pose.rz = lerp(-1.25, 0, amount);
+        if (this.mechanism === 'butterfly' && part.role === 'width') pose.rx = lerp(part.stowed.z < 0 ? 1.05 : -1.05, 0, amount);
+        return pose;
+      }
+
+      applyPose(part, pose, explode = 0) {
+        const radial = Math.hypot(pose.x, pose.z);
+        const extra = radial > 0 ? explode * 0.12 : 0;
+        const x = pose.x + (radial ? pose.x / radial * extra : 0);
+        const z = pose.z + (radial ? pose.z / radial * extra : 0);
+        part.group.position.set(x, pose.y + explode * 0.08, z);
+        part.group.rotation.set(pose.rx || 0, pose.ry || 0, pose.rz || 0);
+      }
+
+      updateRigidModel(progress, target, validationOnly = false) {
+        const mesh = this.moduleMeshes[0];
+        const explode = validationOnly ? 0 : (this.mode === 'exploded' ? 1 : progress.analysis || 0);
+        mesh.activeCollisionBoxes = [];
+        for (const part of mesh.mechanicalParts) {
+          this.applyPose(part, this.poseForPart(part, progress, target), explode);
+          part.collisionProxy.visible = progress.showCollision || this.collisionUnsafe || validationOnly;
+          mesh.activeCollisionBoxes.push(part.collisionProxy);
+        }
+        this.target3d.scale.set(target.length, 1, target.width);
+        this.target3d.material.opacity = progress.phase === 'locked' ? 0.3 : 0.18;
+        mesh.group.updateMatrixWorld(true);
+      }
+
+      checkRigidCollisions(context = {}) {
+        const parts = this.moduleMeshes[0].mechanicalParts;
+        const obbs = parts.map((part) => rigidObbFromPart(part));
+        const failures = [];
+        const involved = new Set();
+        for (const obb of obbs) {
+          const minY = rigidObbMinY(obb);
+          if (minY < -0.001) {
+            failures.push({
+              phase: context.phase || 'ground check',
+              frame: context.frame || 0,
+              parts: [obb.part.name, 'floor'],
+              proxies: [obb.part.collisionProxy.name, 'floor_COL'],
+              suggestion: 'Raise the stowed or deployed pose above the ground plane before rerunning the sweep.',
+            });
+            involved.add(obb.part.name);
+          }
+        }
+        for (let a = 0; a < obbs.length; a += 1) {
+          for (let b = a + 1; b < obbs.length; b += 1) {
+            if (rigidObbsOverlap(obbs[a], obbs[b])) {
+              failures.push({
+                phase: context.phase || 'rigid sweep',
+                frame: context.frame || 0,
+                parts: [obbs[a].part.name, obbs[b].part.name],
+                proxies: [obbs[a].part.collisionProxy.name, obbs[b].part.collisionProxy.name],
+                suggestion: 'Delay one part, add a high-clearance waypoint, or move the pivot/rail path outward and rerun the full sweep.',
+              });
+              involved.add(obbs[a].part.name);
+              involved.add(obbs[b].part.name);
+            }
+          }
+        }
+        for (const part of parts) {
+          part.collisionProxy.material.color.set(involved.has(part.name) ? 0xa35d45 : 0x74a66f);
+          part.collisionProxy.material.opacity = involved.has(part.name) ? 0.34 : 0.12;
+        }
+        return { safe: failures.length === 0, failures, proxiesChecked: parts.length };
+      }
+
+      validateCollisionPlan(samples = 96, target = this.dimensions) {
+        const runSweep = () => {
+          const failures = [];
+          let proxiesChecked = 0;
+          for (let i = 0; i <= samples; i += 1) {
+            const t = i / samples;
+            const activePhase = assemblyPhaseAt(this.mechanism, t);
+            const progress = { transform: t, analysis: 0, showCollision: true, phase: 'rigid sweep', assemblyPhase: activePhase, frame: i };
+            this.updateRigidModel(progress, target, true);
+            const check = this.checkRigidCollisions({ phase: activePhase.label, frame: i });
+            proxiesChecked = Math.max(proxiesChecked, check.proxiesChecked);
+            if (!check.safe) failures.push(...check.failures);
+          }
+          return { failures, proxiesChecked };
+        };
+        let sweep = runSweep();
+        const repairLog = [];
+        for (let attempt = 0; attempt < 3 && sweep.failures.length > 0; attempt += 1) {
+          const first = sweep.failures[0];
+          repairLog.push(`Attempt ${attempt + 1}: ${first.phase} frame ${first.frame}, ${first.parts.join('/')} -> inserted +4cm high-clearance waypoint`);
+          this.repairLift += 0.04;
+          sweep = runSweep();
+        }
+        this.collisionUnsafe = sweep.failures.length > 0;
+        this.collisionReports = sweep.failures.slice(0, 4);
+        this.collisionFailures = this.collisionReports.map((failure) => `${failure.phase} f${failure.frame}: ${failure.parts.join('/')}`);
+        this.sweepReport = {
+          safe: sweep.failures.length === 0,
+          failures: sweep.failures,
+          framesChecked: samples + 1,
+          proxiesChecked: sweep.proxiesChecked,
+          repaired: repairLog.length > 0,
+          repairLog,
+        };
+        this.section.dataset.sweepSafe = String(this.sweepReport.safe);
+        this.section.dataset.sweepFailures = this.collisionFailures.join(' | ');
+        return this.sweepReport;
+      }
+
+      validateAllPresets(samples = 96) {
+        return (RigidTargetPresets[this.mechanism] || []).map((preset) => ({
+          preset,
+          report: this.validateCollisionPlan(samples, preset),
+        }));
+      }
+
+      layout2d(view) {
+        const world = { minX: -1.1, maxX: 1.1, minZ: -1.1, maxZ: 1.1 };
+        const unit = Math.min((view.width - 46) / (world.maxX - world.minX), (view.height - 56) / (world.maxZ - world.minZ));
+        return {
+          world,
+          unit,
+          left: (view.width - (world.maxX - world.minX) * unit) / 2,
+          top: (view.height - (world.maxZ - world.minZ) * unit) / 2,
+        };
+      }
+
+      toPixel(point, layout) {
+        return {
+          x: layout.left + (point.x - layout.world.minX) * layout.unit,
+          y: layout.top + (point.z - layout.world.minZ) * layout.unit,
+        };
+      }
+
+      drawRect2d(ctx, cx, cz, length, width, layout, fill, stroke, lineWidth = 1, rotation = 0) {
+        const center = this.toPixel({ x: cx, z: cz }, layout);
+        const w = length * layout.unit;
+        const h = width * layout.unit;
+        ctx.save();
+        ctx.translate(center.x, center.y);
+        ctx.rotate(rotation);
+        if (fill) {
+          ctx.fillStyle = fill;
+          drawRoundRect(ctx, -w / 2, -h / 2, w, h, 4);
+          ctx.fill();
+        }
+        if (stroke) {
+          ctx.lineWidth = lineWidth;
+          ctx.strokeStyle = stroke;
+          drawRoundRect(ctx, -w / 2, -h / 2, w, h, 4);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      draw2d(progress) {
+        const view = resizeCanvas(this.canvas2d, this.ctx);
+        const layout = this.layout2d(view);
+        const ctx = this.ctx;
+        ctx.clearRect(0, 0, view.width, view.height);
+        this.drawRect2d(ctx, 0, 0, this.dimensions.length, this.dimensions.width, layout, 'rgba(30,107,74,.06)', 'rgba(30,107,74,.72)', 2);
+        ctx.fillStyle = 'rgba(30,107,74,.94)';
+        ctx.font = '700 12px Inter, Arial, sans-serif';
+        ctx.fillText(`Rigid preset: ${this.dimensions.length.toFixed(1)}m x ${this.dimensions.width.toFixed(1)}m`, 16, view.height - 18);
+        for (const part of this.moduleMeshes[0].mechanicalParts) {
+          if (part.name.includes('caster')) continue;
+          const pose = this.poseForPart(part, progress, this.dimensions);
+          const alpha = part.role === 'static' ? 0.18 : 0.62;
+          this.drawRect2d(ctx, pose.x, pose.z, part.size.x, part.size.z, layout, `rgba(30,107,74,${alpha * 0.28})`, part.role === 'static' ? 'rgba(21,24,21,.22)' : 'rgba(30,107,74,.62)', 1, pose.ry || 0);
+        }
+      }
+
+      setArrow(index, origin, direction, length, color = 0x74a66f) {
+        const arrow = this.arrows[index];
+        if (!arrow) return;
+        arrow.visible = true;
+        arrow.position.set(origin.x, origin.y, origin.z);
+        arrow.setDirection(new THREE.Vector3(direction.x, direction.y, direction.z).normalize());
+        arrow.setLength(length, 0.09, 0.045);
+        arrow.setColor(new THREE.Color(color));
+      }
+
+      updateArrows3d(progress) {
+        this.arrows.forEach((arrow) => { arrow.visible = false; });
+        const show = this.mode !== 'transform' || progress.analysis > 0.05 || progress.phase === 'rigid transform';
+        if (!show) return;
+        const color = this.collisionUnsafe ? 0xa35d45 : 0x74a66f;
+        this.setArrow(0, { x: -0.18, y: 0.95, z: 0 }, { x: -1, y: 0, z: 0 }, 0.32, color);
+        this.setArrow(1, { x: 0.18, y: 0.95, z: 0 }, { x: 1, y: 0, z: 0 }, 0.32, color);
+        this.setArrow(2, { x: 0, y: 1.02, z: -0.18 }, { x: 0, y: 0, z: -1 }, 0.28, color);
+        this.setArrow(3, { x: 0, y: 1.02, z: 0.18 }, { x: 0, y: 0, z: 1 }, 0.28, color);
+      }
+
+      updateOverlay(progress) {
+        if (!this.overlay) return;
+        const safetyClass = this.collisionUnsafe ? 'risk' : 'safe';
+        const safetyText = this.collisionUnsafe
+          ? `collision risk: ${this.collisionFailures.join(', ')}`
+          : `rigid sweep clear: ${(this.sweepReport?.framesChecked || 97)} frames`;
+        const modeText = this.mode === 'collision' ? 'collision volumes visible'
+          : this.mode === 'exploded' ? 'exploded assembly analysis'
+          : 'rigid mechanical sequence';
+        const snapText = `requested ${this.requestedDimensions.length.toFixed(1)}x${this.requestedDimensions.width.toFixed(1)} -> snapped ${this.dimensions.length.toFixed(1)}x${this.dimensions.width.toFixed(1)}`;
+        const html = [
+          `<span class="analysis-chip">${escapeHtml(modeText)}</span>`,
+          `<span class="analysis-chip">${escapeHtml(progress.assemblyPhase.label)} | frame ${progress.frame}</span>`,
+          `<span class="analysis-chip">${escapeHtml(snapText)}</span>`,
+          `<span class="analysis-chip">${this.moduleMeshes[0].mechanicalParts.length}/${this.moduleMeshes[0].collisionBoxes.length} rigid proxies</span>`,
+          `<span class="analysis-chip ${safetyClass}">${escapeHtml(safetyText)}</span>`,
+        ].join('');
+        if (this.overlay.innerHTML !== html) this.overlay.innerHTML = html;
+      }
+
+      configureOrthoCamera(camera, width, height, view) {
+        const aspect = width / Math.max(1, height);
+        const span = view === 'top' ? 2.55 : 1.72;
+        camera.left = -span * aspect / 2;
+        camera.right = span * aspect / 2;
+        camera.top = view === 'top' ? span / 2 : span * 0.52;
+        camera.bottom = view === 'top' ? -span / 2 : -span * 0.36;
+        if (view === 'top') {
+          camera.position.set(0, 4.2, 0);
+          camera.up.set(0, 0, -1);
+        } else if (view === 'front') {
+          camera.position.set(0, 0.72, 3.2);
+          camera.up.set(0, 1, 0);
+        } else {
+          camera.position.set(3.2, 0.72, 0);
+          camera.up.set(0, 1, 0);
+        }
+        camera.lookAt(0, 0.48, 0);
+        camera.updateProjectionMatrix();
+      }
+
+      renderInspectionView(camera, viewport) {
+        this.renderer.setViewport(viewport.x, viewport.y, viewport.w, viewport.h);
+        this.renderer.setScissor(viewport.x, viewport.y, viewport.w, viewport.h);
+        this.renderer.clear(true, true, true);
+        this.renderer.render(this.scene, camera);
+      }
+
+      draw3d(progress) {
+        const rect = this.canvas3d.getBoundingClientRect();
+        const width = Math.max(1, rect.width);
+        const height = Math.max(1, rect.height);
+        this.renderer.setSize(width, height, false);
+        const halfW = Math.floor(width / 2);
+        const halfH = Math.floor(height / 2);
+        const viewports = [
+          { camera: this.camera, x: 0, y: halfH, w: halfW, h: height - halfH },
+          { camera: this.frontCamera, x: halfW, y: halfH, w: width - halfW, h: height - halfH },
+          { camera: this.sideCamera, x: 0, y: 0, w: halfW, h: halfH },
+          { camera: this.topCamera, x: halfW, y: 0, w: width - halfW, h: halfH },
+        ];
+        this.camera.aspect = viewports[0].w / Math.max(1, viewports[0].h);
+        this.camera.fov = width < 640 ? 58 : 42;
+        this.camera.position.set(1.75, 1.65, 2.18);
+        this.camera.lookAt(0, 0.52, 0.02);
+        this.camera.updateProjectionMatrix();
+        this.configureOrthoCamera(this.frontCamera, viewports[1].w, viewports[1].h, 'front');
+        this.configureOrthoCamera(this.sideCamera, viewports[2].w, viewports[2].h, 'side');
+        this.configureOrthoCamera(this.topCamera, viewports[3].w, viewports[3].h, 'top');
+        this.updateRigidModel(progress, this.dimensions);
+        const check = this.checkRigidCollisions({ phase: progress.assemblyPhase.label, frame: progress.frame });
+        this.collisionUnsafe = !this.sweepReport?.safe || !check.safe;
+        this.collisionFailures = (this.sweepReport?.failures?.length ? this.sweepReport.failures : check.failures).slice(0, 4).map((failure) => `${failure.phase} f${failure.frame}: ${failure.parts.join('/')}`);
+        if (this.collisionUnsafe && !this.paused) {
+          this.paused = true;
+          this.pauseButton.textContent = 'Resume animation';
+        }
+        this.updateArrows3d(progress);
+        this.updateOverlay(progress);
+        this.scene.rotation.y = 0;
+        this.renderer.setScissorTest(true);
+        for (const viewport of viewports) this.renderInspectionView(viewport.camera, viewport);
+        this.renderer.setScissorTest(false);
+      }
+
+      update(time) {
+        const progress = this.currentProgress(time);
+        this.draw2d(progress);
+        this.draw3d(progress);
+        if (this.status) {
+          const paused = this.paused ? 'paused' : 'running';
+          const collision = this.collisionUnsafe ? `collision risk ${this.collisionFailures.join(', ')}` : 'collision clear';
+          const sweep = this.sweepReport?.safe ? `${this.sweepReport.framesChecked}f rigid sweep clear` : 'sweep needs repair';
+          const snap = `requested ${this.requestedDimensions.length.toFixed(1)}x${this.requestedDimensions.width.toFixed(1)} -> snapped ${this.dimensions.length.toFixed(1)}x${this.dimensions.width.toFixed(1)}`;
+          this.status.textContent = `${mechanismNames[this.mechanism]} | ${snap} | ${progress.assemblyPhase.label} | ${this.mode} | ${collision} | ${sweep} | ${paused}`;
+        }
+      }
+    }
+
     const movementSection = document.querySelector('[data-movement-demo]');
     const movementDemo = movementSection ? new MovementCoordinationDemo(movementSection) : null;
     window.movementDemo = movementDemo;
 
-    const transformDemos = Array.from(document.querySelectorAll('[data-transform-mechanism]'))
-      .map((section, index) => new TransformableTableDemo(section, index));
+    const transformDemos = [];
     window.transformDemos = transformDemos;
+    Array.from(document.querySelectorAll('[data-transform-mechanism]')).forEach((section, index) => {
+      try {
+        transformDemos.push(new RigidTransformableTableDemo(section, index));
+      } catch (error) {
+        console.error('Rigid transform demo failed to initialize', section.dataset.transformMechanism, error);
+      }
+    });
+    document.body.dataset.rigidTransformDemoCount = String(transformDemos.length);
 
     function animationLoop(time) {
       if (movementDemo) {
